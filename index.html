@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Солнечная система — 3D</title>
+  <meta name="description" content="Интерактивная обучающая 3D-модель Солнечной системы: вращайте, приближайте и меняйте параметры планет.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%227%22 fill=%22%23ffc56b%22/%3E%3Cellipse cx=%2216%22 cy=%2216%22 rx=%2214%22 ry=%225%22 fill=%22none%22 stroke=%22%237f9cff%22 stroke-width=%221.5%22/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div id="labels"></div>
+
+  <header class="brand">
+    <p class="kicker">Интерактивная модель</p>
+    <h1>Солнечная <br>система</h1>
+    <p id="date" class="date">—</p>
+  </header>
+
+  <button id="toggleControls" class="fab" aria-label="Настройки">☰ Настройки</button>
+
+  <aside id="controls" class="panel">
+    <section>
+      <h3>Время</h3>
+      <div class="buttons">
+        <button id="reverse" class="icon" title="Повернуть время вспять">⟲</button>
+        <button id="play" class="icon primary">❚❚</button>
+        <button id="today" class="ghost" title="Вернуться к сегодняшней дате">Сегодня</button>
+      </div>
+      <label class="slider">
+        <span class="row"><span>Скорость</span><output id="speedValue"></output></span>
+        <input id="speed" type="range" min="0" max="1000" step="1">
+      </label>
+    </section>
+
+    <section>
+      <h3>Масштаб</h3>
+      <select id="mode">
+        <option value="compact">Наглядный</option>
+        <option value="real">Реальные расстояния</option>
+        <option value="true">Полностью реальный</option>
+      </select>
+      <label class="slider" id="sizeRow">
+        <span class="row"><span>Размер планет</span><output id="sizeValue">× 1</output></span>
+        <input id="size" type="range" min="0.3" max="4" step="0.1" value="1">
+      </label>
+    </section>
+
+    <section>
+      <h3>Показать</h3>
+      <div class="toggles">
+        <label><input type="checkbox" data-show="orbits"><span>Орбиты</span></label>
+        <label><input type="checkbox" data-show="labels"><span>Подписи</span></label>
+        <label><input type="checkbox" data-show="moons"><span>Спутники</span></label>
+        <label><input type="checkbox" data-show="axes"><span>Оси вращения</span></label>
+        <label><input type="checkbox" data-show="belt"><span>Пояс астероидов</span></label>
+        <label><input type="checkbox" data-show="hz"><span>Обитаемая зона</span></label>
+      </div>
+    </section>
+
+    <section>
+      <h3>Солнце</h3>
+      <label class="slider">
+        <span class="row"><span>Масса звезды</span></span>
+        <input id="sunMass" type="range" min="0.5" max="2" step="0.01" value="1">
+        <output id="sunMassValue" class="sub"></output>
+      </label>
+    </section>
+
+    <section>
+      <h3>Ваш вес на Земле</h3>
+      <label class="number"><input id="userMass" type="number" min="1" max="500" step="1"><span>кг</span></label>
+    </section>
+
+    <section id="presets">
+      <h3>Опыты «Что если?»</h3>
+      <button data-preset="earth-venus">Земля на орбите Венеры</button>
+      <button data-preset="earth-mars">Земля на орбите Марса</button>
+      <button data-preset="earth-ecc">Вытянутая орбита Земли</button>
+      <button data-preset="earth-tilt">Земля без наклона оси</button>
+      <button data-preset="jupiter-star">Юпитер в 80 раз тяжелее</button>
+      <button data-preset="sun-heavy">Солнце массивнее в 1,5 раза</button>
+    </section>
+
+    <button id="resetAll" class="ghost wide">Сбросить всё</button>
+  </aside>
+
+  <aside id="info" class="panel">
+    <button id="closeInfo" class="close" aria-label="Закрыть">✕</button>
+    <div id="infoBody"></div>
+  </aside>
+
+  <nav id="planetbar"></nav>
+
+  <div id="hint">Перетаскивайте — вращение · колесо — приближение · правая кнопка — сдвиг · клик по планете — подробности · клавиши 0–8, пробел, Esc</div>
+  <div id="toast" role="status"></div>
+
+  <div id="loading">
+    <div>
+      <p class="kicker">Солнечная система</p>
+      <p id="loadText">Загрузка…</p>
+      <div class="track"><div id="loadBar"></div></div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
