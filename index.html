@@ -28,14 +28,14 @@
 
   <aside id="controls" class="panel">
     <section>
-      <h3>Время</h3>
-      <div class="buttons">
-        <button id="reverse" class="icon" title="Повернуть время вспять">⟲</button>
-        <button id="play" class="icon primary">❚❚</button>
-        <button id="today" class="ghost" title="Вернуться к сегодняшней дате">Сегодня</button>
-      </div>
+      <h3>Сценарии</h3>
+      <div id="scenarioList" class="scenario-list"></div>
+    </section>
+
+    <section>
+      <h3>Скорость времени</h3>
       <label class="slider">
-        <span class="row"><span>Скорость</span><output id="speedValue"></output></span>
+        <span class="row"><span>1 секунда на экране</span><output id="speedValue"></output></span>
         <input id="speed" type="range" min="0" max="1000" step="1">
       </label>
     </section>
@@ -97,9 +97,40 @@
     <div id="infoBody"></div>
   </aside>
 
+  <div id="timedock" role="group" aria-label="Управление временем">
+    <button id="reverse" class="icon" title="Повернуть время вспять" aria-label="Повернуть время вспять">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H5V3M5.4 7A8 8 0 1 1 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button id="slower" class="icon" title="Медленнее ( [ )" aria-label="Медленнее">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.5 6.5v11L4 12zM20 6.5v11L12.5 12z" fill="currentColor"/></svg>
+    </button>
+    <button id="play" class="icon primary big" title="Пауза (пробел)"></button>
+    <button id="faster" class="icon" title="Быстрее ( ] )" aria-label="Быстрее">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5v11l7.5-5.5zM12.5 6.5v11L20 12z" fill="currentColor"/></svg>
+    </button>
+    <span id="dockSpeed" class="dock-speed"></span>
+    <button id="realtime" class="ghost small" title="Время идёт как в жизни">Реальное</button>
+    <button id="today" class="ghost small" title="Вернуться к сегодняшней дате">Сегодня</button>
+  </div>
+
+  <section id="scenario" aria-live="polite">
+    <div class="sc-top">
+      <p class="kicker" id="scTitle"></p>
+      <button id="scClose" class="close" aria-label="Закрыть сценарий">✕</button>
+    </div>
+    <p id="scStep" class="sc-step"></p>
+    <h4 id="scHead"></h4>
+    <p id="scText"></p>
+    <div class="sc-nav">
+      <button id="scPrev" class="ghost">Назад</button>
+      <div id="scDots" class="sc-dots"></div>
+      <button id="scNext" class="primary">Далее</button>
+    </div>
+  </section>
+
   <nav id="planetbar"></nav>
 
-  <div id="hint">Перетаскивайте — вращение · колесо — приближение · правая кнопка — сдвиг · клик по планете — подробности · клавиши 0–8, пробел, Esc</div>
+  <div id="hint">Перетаскивайте — вращение · колесо — приближение · правая кнопка — сдвиг · клик по планете — подробности · 0–8 планеты · пробел пауза · [ ] скорость · C разрез</div>
   <div id="toast" role="status"></div>
 
   <div id="loading">

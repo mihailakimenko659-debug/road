@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from '../vendor/OrbitControls.js';
-import { PLANETS, SUN, MOONS } from './data.js';
-import { planetTexture, cloudTexture, sunTexture, moonTexture, glowTexture, ringTexture } from './textures.js';
+import { PLANETS, SUN, MOONS, INTERIOR } from './data.js';
+import { PlanetSurface, CloudLayer, moonTextures, interiorTexture, glowTexture, ringTexture, dotTexture } from './textures.js';
 import { AU_KM, eccentricAnomaly, periodYears, computeStats, habitableZone, luminosity } from './physics.js';
+import { buildScenarios } from './scenarios.js';
 
 const DEG = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -22,6 +23,7 @@ const state = {
   userMass: 50,
   show: { orbits: true, labels: true, axes: false, moons: true, belt: true, hz: false },
   selected: null, // null | 'sun' | объект планеты
+  cut: null, // null | 'sun' | объект планеты
 };
 
 // ---------- сцена ----------
@@ -29,6 +31,8 @@ const canvas = $('#scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.localClippingEnabled = true;
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#02030a');
@@ -42,7 +46,7 @@ controls.minDistance = 1;
 controls.maxDistance = 12000;
 controls.zoomSpeed = 1.2;
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.07));
+scene.add(new THREE.AmbientLight(0xffffff, 0.06));
 const sunLight = new THREE.PointLight(0xfff4e0, 2.6, 0, 0);
 scene.add(sunLight);
 
@@ -59,17 +63,28 @@ function sunRadius() {
   return state.mode === 'true' ? (SUN.radiusKm / AU_KM) * AU_U * k : 7 * k;
 }
 
-// ---------- звёзды ----------
+// ---------- звёзды и Млечный Путь ----------
 {
-  const n = 7000;
+  const n = 9000;
   const pos = new Float32Array(n * 3);
   const col = new Float32Array(n * 3);
   const c = new THREE.Color();
+  const tilt = new THREE.Matrix4().makeRotationX(1.05).multiply(new THREE.Matrix4().makeRotationZ(0.4));
+  const v = new THREE.Vector3();
   for (let i = 0; i < n; i++) {
-    const u = Math.random() * 2 - 1, t = Math.random() * TAU, r = 15000;
-    const s = Math.sqrt(1 - u * u);
-    pos.set([r * s * Math.cos(t), r * u, r * s * Math.sin(t)], i * 3);
-    c.setHSL(0.55 + Math.random() * 0.15 - (Math.random() < 0.3 ? 0.5 : 0), 0.4, 0.55 + Math.random() * 0.45);
+    const r = 15000;
+    if (i < 5000) {
+      const u = Math.random() * 2 - 1, t = Math.random() * TAU, s = Math.sqrt(1 - u * u);
+      v.set(r * s * Math.cos(t), r * u, r * s * Math.sin(t));
+    } else {
+      // полоса Млечного Пути
+      const t = Math.random() * TAU, h = (Math.random() + Math.random() + Math.random() - 1.5) * 0.12;
+      v.set(Math.cos(t), h, Math.sin(t)).normalize().multiplyScalar(r).applyMatrix4(tilt);
+    }
+    pos.set([v.x, v.y, v.z], i * 3);
+    const warm = Math.random() < 0.3;
+    c.setHSL(warm ? 0.08 : 0.6, warm ? 0.5 : 0.3, 0.5 + Math.random() * 0.45);
+    if (i >= 5000) c.multiplyScalar(0.55);
     col.set([c.r, c.g, c.b], i * 3);
   }
   const g = new THREE.BufferGeometry();
@@ -78,10 +93,55 @@ function sunRadius() {
   scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.4, sizeAttenuation: false, vertexColors: true })));
 }
 
-// ---------- Солнце ----------
+// ---------- Солнце: живая поверхность в шейдере ----------
+const sunUniforms = { time: { value: 0 }, tint: { value: new THREE.Color(1, 1, 1) } };
+const sunMaterial = new THREE.ShaderMaterial({
+  uniforms: sunUniforms,
+  clipping: true,
+  vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+    #include <clipping_planes_pars_vertex>
+    varying vec3 vObj; varying vec3 vN; varying vec3 vV;
+    void main() {
+      vObj = position;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vN = normalize(normalMatrix * normal);
+      vV = normalize(-mvPosition.xyz);
+      gl_Position = projectionMatrix * mvPosition;
+      #include <logdepthbuf_vertex>
+      #include <clipping_planes_vertex>
+    }`,
+  fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+    #include <clipping_planes_pars_fragment>
+    uniform float time; uniform vec3 tint;
+    varying vec3 vObj; varying vec3 vN; varying vec3 vV;
+    float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float noise(vec3 x) {
+      vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+    }
+    float fbm(vec3 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * noise(p); p *= 2.03; a *= 0.5; } return s; }
+    void main() {
+      #include <clipping_planes_fragment>
+      #include <logdepthbuf_fragment>
+      vec3 p = normalize(vObj);
+      float big = fbm(p * 3.0 + vec3(0.0, time * 0.02, 0.0));
+      float gran = fbm(p * 34.0 + vec3(time * 0.09));
+      float spots = smoothstep(0.7, 0.76, fbm(p * 5.0 + 11.0 + time * 0.004)) * smoothstep(0.55, 0.15, abs(p.y));
+      vec3 col = mix(vec3(1.0, 0.42, 0.06), vec3(1.0, 0.8, 0.38), big);
+      col = mix(col, vec3(1.0, 0.96, 0.78), gran * 0.55);
+      col *= 1.0 - spots * 0.75;
+      float mu = max(dot(vN, vV), 0.0);
+      col *= 0.42 + 0.68 * pow(mu, 0.45);
+      gl_FragColor = vec4(col * tint, 1.0);
+    }`,
+});
 const sunGroup = new THREE.Group();
 scene.add(sunGroup);
-const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 32), new THREE.MeshBasicMaterial({ map: sunTexture() }));
+const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 48), sunMaterial);
 sunMesh.userData.pick = 'sun';
 sunGroup.add(sunMesh);
 const glowTex = glowTexture();
@@ -92,28 +152,32 @@ sunGroup.add(glow1, glow2);
 // ---------- атмосферное свечение ----------
 function atmosphere(color, strength) {
   return new THREE.Mesh(
-    new THREE.SphereGeometry(1.06, 48, 24),
+    new THREE.SphereGeometry(1.06, 64, 32),
     new THREE.ShaderMaterial({
       uniforms: { color: { value: new THREE.Color(color) }, strength: { value: strength } },
       vertexShader: `
         #include <common>
         #include <logdepthbuf_pars_vertex>
-        varying vec3 vN; varying vec3 vV;
+        varying vec3 vN; varying vec3 vV; varying vec3 vW;
         void main() {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           vN = normalize(normalMatrix * normal);
           vV = normalize(-mv.xyz);
+          vW = mv.xyz;
           gl_Position = projectionMatrix * mv;
           #include <logdepthbuf_vertex>
         }`,
       fragmentShader: `
         #include <logdepthbuf_pars_fragment>
         uniform vec3 color; uniform float strength;
-        varying vec3 vN; varying vec3 vV;
+        varying vec3 vN; varying vec3 vV; varying vec3 vW;
         void main() {
           #include <logdepthbuf_fragment>
           float f = 1.0 - max(dot(vN, vV), 0.0);
-          gl_FragColor = vec4(color, pow(f, 4.0) * strength);
+          vec3 sunV = (viewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+          float day = dot(vN, normalize(sunV - vW));
+          float lit = smoothstep(-0.35, 0.3, day);
+          gl_FragColor = vec4(color, pow(f, 4.0) * strength * (0.15 + 0.85 * lit));
         }`,
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -122,13 +186,97 @@ function atmosphere(color, strength) {
   );
 }
 
+// ---------- разрез ----------
+// Вырезаем октант, обращённый к камере: три плоскости отсечения и три
+// четвертинки диска с нарисованными слоями.
+const CORNER = new THREE.Vector3(1, 1, 1).normalize();
+const clipPlanes = [new THREE.Plane(), new THREE.Plane(), new THREE.Plane()];
+const cutGroup = new THREE.Group();
+cutGroup.visible = false;
+scene.add(cutGroup);
+const quarterGeo = new THREE.CircleGeometry(0.998, 96, 0, Math.PI / 2);
+const cutMaterial = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+{
+  const a = new THREE.Mesh(quarterGeo, cutMaterial); // плоскость z = 0
+  const b = new THREE.Mesh(quarterGeo, cutMaterial);
+  b.rotation.y = -Math.PI / 2; // плоскость x = 0
+  const c = new THREE.Mesh(quarterGeo, cutMaterial);
+  c.rotation.x = Math.PI / 2; // плоскость y = 0
+  cutGroup.add(a, b, c);
+}
+const interiorTextures = {};
+const layerLabels = [];
+
+function cutMaterials(target) {
+  if (target === 'sun') return [sunMaterial];
+  return [target.surface.material, target.clouds?.material].filter(Boolean);
+}
+
+function setCut(target) {
+  if (state.cut) {
+    cutMaterials(state.cut).forEach((m) => {
+      m.clippingPlanes = null;
+      m.needsUpdate = true;
+    });
+    if (state.cut !== 'sun') state.cut.atmos.forEach((a) => (a.visible = true));
+  }
+  layerLabels.splice(0).forEach((l) => removeLabel(l));
+  state.cut = target;
+  cutGroup.visible = !!target;
+  if (!target) return renderCutButton();
+
+  const id = target === 'sun' ? 'sun' : target.base.id;
+  interiorTextures[id] ??= interiorTexture(INTERIOR[id]);
+  cutMaterial.map = interiorTextures[id];
+  cutMaterial.needsUpdate = true;
+  cutMaterials(target).forEach((m) => {
+    m.clippingPlanes = clipPlanes;
+    m.clipIntersection = true;
+    m.needsUpdate = true;
+  });
+  if (target !== 'sun') target.atmos.forEach((a) => (a.visible = false));
+  if (target === state.selected) flyTo(target, target === 'sun' ? 3 : 3.4);
+  INTERIOR[id].forEach((L, i, arr) => {
+    const inner = arr[i + 1]?.r ?? 0;
+    const label = makeLabel(L.name, 'layer', () => {});
+    // соседние слои подписываем на разных гранях, чтобы подписи не слипались
+    const dir = i % 2 ? new THREE.Vector3(1, 1, 0) : new THREE.Vector3(1, 0, 1);
+    label.local = dir.normalize().multiplyScalar((L.r + inner) / 2);
+    layerLabels.push(label);
+  });
+  renderCutButton();
+}
+
+const tmpQ = new THREE.Quaternion();
+const tmpN = new THREE.Vector3();
+function updateCut() {
+  if (!state.cut) return;
+  const { pos, r } = targetInfo(state.cut);
+  const camDir = camera.position.clone().sub(pos).normalize();
+  tmpQ.setFromUnitVectors(CORNER, camDir);
+  cutGroup.position.copy(pos);
+  cutGroup.quaternion.copy(tmpQ);
+  cutGroup.scale.setScalar(r);
+  [[1, 0, 0], [0, 1, 0], [0, 0, 1]].forEach((axis, i) => {
+    tmpN.set(-axis[0], -axis[1], -axis[2]).applyQuaternion(tmpQ);
+    clipPlanes[i].setFromNormalAndCoplanarPoint(tmpN, pos);
+  });
+  cutGroup.updateMatrixWorld();
+  // подписи слоёв показываем, только когда разрез достаточно крупный
+  const px = (r / camera.position.distanceTo(pos)) * (window.innerHeight / (2 * Math.tan((camera.fov * DEG) / 2)));
+  layerLabels.forEach((l) => {
+    l.visible = state.show.labels && px > 150;
+    l.pos.copy(l.local).applyMatrix4(cutGroup.matrixWorld);
+  });
+}
+
 // ---------- планеты ----------
-const sphereGeo = new THREE.SphereGeometry(1, 96, 48);
-const smallSphereGeo = new THREE.SphereGeometry(1, 32, 16);
+const sphereGeo = new THREE.SphereGeometry(1, 128, 64);
+const smallSphereGeo = new THREE.SphereGeometry(1, 48, 24);
 const bodies = [];
 
 function ringMesh(inner, outer, faint) {
-  const geo = new THREE.RingGeometry(inner, outer, 160, 1);
+  const geo = new THREE.RingGeometry(inner, outer, 192, 1);
   const pos = geo.attributes.position, uv = geo.attributes.uv;
   for (let i = 0; i < pos.count; i++) {
     const r = Math.hypot(pos.getX(i), pos.getY(i));
@@ -140,6 +288,20 @@ function ringMesh(inner, outer, faint) {
   );
   m.rotation.x = -Math.PI / 2;
   return m;
+}
+
+// Огни городов светятся только на ночной стороне, лава — всегда.
+function nightEmissive(material, uniform) {
+  material.onBeforeCompile = (sh) => {
+    sh.uniforms.nightOnly = uniform;
+    sh.fragmentShader = 'uniform float nightOnly;\n' + sh.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
+       vec3 sunV = (viewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+       float dayL = dot(normal, normalize(sunV + vViewPosition));
+       totalEmissiveRadiance *= mix(1.0, smoothstep(0.2, -0.15, dayL), nightOnly);`,
+    );
+  };
 }
 
 function initialAnomaly(p) {
@@ -154,7 +316,7 @@ async function buildPlanets(progress) {
   for (let idx = 0; idx < PLANETS.length; idx++) {
     const p = PLANETS[idx];
     progress(`Создаём: ${p.name}`, idx / PLANETS.length);
-    await new Promise((r) => requestAnimationFrame(r));
+    await new Promise((r) => setTimeout(r, 0));
 
     const root = new THREE.Group();
     const tiltGroup = new THREE.Group();
@@ -163,21 +325,41 @@ async function buildPlanets(progress) {
     tiltGroup.add(body);
     scene.add(root);
 
-    const surface = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({ map: planetTexture(p, idx + 3), roughness: 0.95, metalness: 0 }));
+    const surf = new PlanetSurface(p, idx + 3);
+    [surf.map, surf.emissive, surf.bump, surf.roughness].forEach((t) => t && (t.anisotropy = maxAniso));
+    const nightU = { value: 1 };
+    const material = new THREE.MeshStandardMaterial({
+      map: surf.map,
+      bumpMap: surf.bump || null,
+      bumpScale: p.kind === 'earth' ? 3 : 2.2,
+      roughnessMap: surf.roughness || null,
+      roughness: surf.roughness ? 1 : 0.95,
+      metalness: 0,
+      emissiveMap: surf.emissive,
+      emissive: new THREE.Color(1, 1, 1),
+      emissiveIntensity: 1.3,
+    });
+    nightEmissive(material, nightU);
+    const surface = new THREE.Mesh(sphereGeo, material);
     surface.userData.pick = p.id;
     body.add(surface);
 
     let clouds = null;
+    const atmos = [];
     if (p.kind === 'earth') {
-      clouds = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({ map: cloudTexture(42), transparent: true, depthWrite: false, roughness: 1 }));
+      const cl = new CloudLayer(42);
+      clouds = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({ map: cl.map, transparent: true, depthWrite: false, roughness: 1 }));
+      clouds.userData.layer = cl;
       clouds.scale.setScalar(1.012);
       body.add(clouds);
-      body.add(atmosphere('#4d9bff', 0.9));
+      atmos.push(atmosphere('#4d9bff', 1.1));
     }
-    if (p.id === 'venus') body.add(atmosphere('#ffd58a', 1.0));
-    if (p.id === 'uranus') body.add(atmosphere('#a9f0ff', 0.7));
-    if (p.id === 'neptune') body.add(atmosphere('#5d86ff', 0.8));
-    if (p.id === 'mars') body.add(atmosphere('#ff9a6a', 0.35));
+    if (p.id === 'venus') atmos.push(atmosphere('#ffd58a', 1.0));
+    if (p.id === 'uranus') atmos.push(atmosphere('#a9f0ff', 0.7));
+    if (p.id === 'neptune') atmos.push(atmosphere('#5d86ff', 0.8));
+    if (p.id === 'mars') atmos.push(atmosphere('#ff9a6a', 0.4));
+    if (p.id === 'jupiter' || p.id === 'saturn') atmos.push(atmosphere('#f3dcb0', 0.35));
+    atmos.forEach((a) => body.add(a));
     if (p.rings) body.add(p.faintRings ? ringMesh(1.6, 2.05, true) : ringMesh(1.24, 2.27, false));
 
     const axis = new THREE.Line(
@@ -195,7 +377,8 @@ async function buildPlanets(progress) {
     const moonPivot = new THREE.Group();
     (p.id === 'earth' ? root : tiltGroup).add(moonPivot);
     const moons = (MOONS[p.id] || []).map((m, i) => {
-      const mesh = new THREE.Mesh(smallSphereGeo, new THREE.MeshStandardMaterial({ map: moonTexture(m.color, 100 + idx * 10 + i), roughness: 1 }));
+      const tx = moonTextures(m.color, 100 + idx * 10 + i);
+      const mesh = new THREE.Mesh(smallSphereGeo, new THREE.MeshStandardMaterial({ map: tx.map, bumpMap: tx.bump, bumpScale: 2, roughness: 1 }));
       moonPivot.add(mesh);
       const o = { data: m, mesh, angle: Math.random() * TAU, label: null };
       o.label = makeLabel(m.name, 'moon', () => select(bodies[idx]));
@@ -204,14 +387,76 @@ async function buildPlanets(progress) {
 
     const obj = {
       base: p, cur: freshParams(p), M: initialAnomaly(p), spin: Math.random() * TAU,
-      root, tiltGroup, body, surface, clouds, axis, orbitLine, moonPivot, moons,
-      label: null, rDisp: 1,
+      root, tiltGroup, body, surface, clouds, atmos, axis, orbitLine, moonPivot, moons, surf, nightU,
+      label: null, rDisp: 1, climateT: null, climateDirty: true,
     };
     obj.label = makeLabel(p.name, 'planet', () => select(obj));
     bodies.push(obj);
+    renderClimate(obj);
   }
 }
 
+// ---------- климат ----------
+function statsOf(b) {
+  const signedRot = b.cur.rotation * (b.cur.tilt > 90 ? -1 : 1);
+  return computeStats(b.base, { ...b.cur, rotation: signedRot }, state.sunMass, state.userMass);
+}
+
+function renderClimate(b) {
+  const T = statsOf(b).tSurfC;
+  b.climateDirty = false;
+  if (b.climateT !== null && Math.abs(T - b.climateT) < 0.75) return;
+  b.climateT = T;
+  const res = b.surf.render(T);
+  b.nightU.value = res.nightOnly ? 1 : 0;
+  if (b.clouds) b.clouds.userData.layer.render(T);
+}
+
+function markClimate(b) {
+  if (b) b.climateDirty = true;
+  else bodies.forEach((x) => (x.climateDirty = true));
+}
+
+let lastClimate = 0;
+function processClimate(now) {
+  if (now - lastClimate < 90) return;
+  const b = bodies.find((x) => x.climateDirty);
+  if (!b) return;
+  lastClimate = now;
+  renderClimate(b);
+}
+
+function climateText(b, T) {
+  const id = b.base.id, k = b.base.kind;
+  if (k === 'earth') {
+    if (T < -15) return 'Планета-снежок: льды покрыли почти весь шар.';
+    if (T < 5) return 'Ледниковый период: ледники спускаются к умеренным широтам.';
+    if (T < 25) return 'Умеренный климат: океаны, леса, пустыни и полярные шапки.';
+    if (T < 45) return 'Жарко: полярные льды растаяли, пустыни разрастаются.';
+    if (T < 100) return 'Пекло: растительность гибнет, океаны мелеют.';
+    if (T < 450) return 'Океаны выкипели: плотные облака, парниковая катастрофа, как на Венере.';
+    return 'Кора раскалена докрасна, местами течёт лава.';
+  }
+  if (id === 'mars') {
+    if (T < -90) return 'Очень холодно: полярные шапки разрастаются.';
+    if (T < -15) return 'Холодная пыльная пустыня с полярными шапками.';
+    if (T < 5) return 'Полярные шапки тают.';
+    if (T < 40) return 'Тепло: в низинах появились моря, по берегам зеленеет.';
+    return 'Жарко: вода испаряется.';
+  }
+  if (k === 'rocky') {
+    if (T < -60) return 'Холодно: у полюсов намерзает иней.';
+    if (T < 350) return 'Безвоздушная каменная пустыня в кратерах.';
+    return 'Кора раскаляется, в трещинах светится лава.';
+  }
+  if (k === 'cloudy') return T < 100 ? 'Облака светлеют и остывают.' : 'Плотные облака скрывают раскалённую поверхность.';
+  if (T > 650) return 'Горячий юпитер: облака темнеют и светятся от жара.';
+  if (T > 60) return 'Атмосфера прогрелась: облака темнеют.';
+  if (T < -150) return 'Очень холодно: облака бледнеют.';
+  return 'Облачные пояса, как сейчас.';
+}
+
+// ---------- орбиты ----------
 function orbitPosition(obj, E, out) {
   const { cur, base } = obj;
   const xo = cur.a * (Math.cos(E) - cur.e);
@@ -226,7 +471,7 @@ function orbitPosition(obj, E, out) {
 
 function rebuildOrbit(obj) {
   const pts = [];
-  for (let i = 0; i < 360; i++) pts.push(orbitPosition(obj, (i / 360) * TAU, new THREE.Vector3()));
+  for (let i = 0; i < 512; i++) pts.push(orbitPosition(obj, (i / 512) * TAU, new THREE.Vector3()));
   obj.orbitLine.geometry.dispose();
   obj.orbitLine.geometry = new THREE.BufferGeometry().setFromPoints(pts);
 }
@@ -248,18 +493,8 @@ function applyBodyScale(obj) {
 }
 
 // ---------- пояс астероидов и обитаемая зона ----------
-function dotTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 32;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(16, 16, 15, 0, TAU);
-  ctx.fill();
-  return new THREE.CanvasTexture(c);
-}
 const beltData = [];
-for (let i = 0; i < 4000; i++) {
+for (let i = 0; i < 6000; i++) {
   beltData.push({ a: 2.1 + Math.pow(Math.random(), 0.8) * 1.2, t: Math.random() * TAU, z: (Math.random() - 0.5) * 0.12 });
 }
 const belt = new THREE.Points(
@@ -276,7 +511,7 @@ function rebuildBelt() {
   belt.geometry.dispose();
   belt.geometry = new THREE.BufferGeometry();
   belt.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  belt.material.size = state.mode === 'compact' ? 0.22 : 0.35;
+  belt.material.size = state.mode === 'compact' ? 0.2 : 0.35;
 }
 
 const hzMesh = new THREE.Mesh(
@@ -298,7 +533,7 @@ function rebuildAll() {
   glow2.scale.setScalar(sr * 14);
   const lum = luminosity(state.sunMass);
   sunLight.intensity = 2.6 * Math.min(2.2, Math.max(0.35, Math.sqrt(lum)));
-  sunMesh.material.color.setHSL(0, 0, 1).lerp(new THREE.Color(state.sunMass < 1 ? '#ff8a4a' : '#bcd4ff'), Math.min(0.6, Math.abs(state.sunMass - 1)));
+  sunUniforms.tint.value.setRGB(1, 1, 1).lerp(new THREE.Color(state.sunMass < 1 ? '#ff7a4a' : '#bcd4ff'), Math.min(0.6, Math.abs(state.sunMass - 1)));
   bodies.forEach((b) => {
     applyBodyScale(b);
     rebuildOrbit(b);
@@ -311,7 +546,7 @@ function rebuildAll() {
 const labelLayer = $('#labels');
 const labels = [];
 function makeLabel(text, kind, onClick) {
-  const el = document.createElement('button');
+  const el = document.createElement(kind === 'layer' ? 'span' : 'button');
   el.className = `label ${kind}`;
   el.textContent = text;
   el.addEventListener('click', (e) => {
@@ -322,6 +557,10 @@ function makeLabel(text, kind, onClick) {
   const l = { el, kind, pos: new THREE.Vector3(), visible: true };
   labels.push(l);
   return l;
+}
+function removeLabel(l) {
+  l.el.remove();
+  labels.splice(labels.indexOf(l), 1);
 }
 const sunLabel = makeLabel('Солнце', 'planet sun', () => select('sun'));
 
@@ -357,7 +596,18 @@ function overviewOffset() {
   return state.mode === 'compact' ? new THREE.Vector3(0, 150, 300) : new THREE.Vector3(0, 950, 1800);
 }
 
+function flyTo(sel, k) {
+  const { pos, r } = targetInfo(sel);
+  const dir = camera.position.clone().sub(pos).normalize();
+  camAnim.active = true;
+  camAnim.t = 0;
+  camAnim.fromTarget = controls.target.clone();
+  camAnim.fromCam = camera.position.clone();
+  camAnim.offset = dir.multiplyScalar(r * k * (window.innerWidth <= 860 ? 1.5 : 1));
+}
+
 function select(sel) {
+  if (state.cut && state.cut !== sel) setCut(null);
   state.selected = sel;
   const { pos, r } = targetInfo(sel);
   let offset;
@@ -390,7 +640,8 @@ function select(sel) {
   renderInfo();
 }
 
-function updateCamera(dt) {
+function updateCamera(realDt) {
+  const dt = Math.min(realDt, 0.4);
   const { pos } = targetInfo(state.selected);
   if (camAnim.active) {
     camAnim.t = Math.min(1, camAnim.t + dt / 1.6);
@@ -423,7 +674,7 @@ canvas.addEventListener('pointerdown', (e) => (downAt = [e.clientX, e.clientY]))
 canvas.addEventListener('pointerup', (e) => {
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
   const hit = pick(e);
-  if (hit) select(hit);
+  if (hit && hit !== state.selected) select(hit);
 });
 canvas.addEventListener('pointermove', (e) => {
   if (e.buttons) return;
@@ -437,12 +688,15 @@ function clampRev(rev, max) {
   return Math.abs(rev) > max ? Math.sign(rev) * max : rev;
 }
 
-function tick() {
-  const dt = Math.min(clock.getDelta(), 0.1);
+function tick(now) {
+  const rawDt = clock.getDelta();
+  const dt = Math.min(rawDt, 0.1);
   const dDays = state.paused ? 0 : state.speed * state.direction * dt;
   state.simDays += dDays;
 
   sunMesh.rotation.y += clampRev(dDays / 25.4, 0.02) * TAU;
+  if (!state.paused) sunUniforms.time.value += dt * Math.min(4, 0.6 + Math.log10(1 + state.speed));
+  glow1.material.opacity = state.cut === 'sun' ? 0.35 : 1;
 
   for (const b of bodies) {
     const Tdays = periodYears(b.cur.a, state.sunMass) * 365.256;
@@ -450,7 +704,7 @@ function tick() {
     orbitPosition(b, eccentricAnomaly(b.M, b.cur.e), b.root.position);
     b.spin += clampRev((dDays * 24) / b.cur.rotation, 0.06) * TAU;
     b.surface.rotation.y = b.spin;
-    if (b.clouds) b.clouds.rotation.y = b.spin * 1.04;
+    if (b.clouds) b.clouds.rotation.y = b.spin * 1.04 + state.simDays * 0.02;
     b.axis.visible = state.show.axes;
     b.orbitLine.visible = state.show.orbits;
     b.moonPivot.visible = state.show.moons;
@@ -471,10 +725,12 @@ function tick() {
   belt.rotation.y = (TAU * state.simDays) / (periodYears(2.7, state.sunMass) * 365.256);
   hzMesh.visible = state.show.hz;
 
-  updateCamera(dt);
+  updateCamera(rawDt);
   controls.update();
+  updateCut();
   renderer.render(scene, camera);
   updateLabels();
+  processClimate(now || 0);
 
   if (frame++ % 10 === 0) {
     updateDate();
@@ -483,7 +739,7 @@ function tick() {
   requestAnimationFrame(tick);
 }
 
-// ---------- интерфейс ----------
+// ---------- время ----------
 const fmt = (v, d = 2) => Number(v).toLocaleString('ru-RU', { maximumFractionDigits: d, minimumFractionDigits: 0 });
 
 function updateDate() {
@@ -494,59 +750,105 @@ function updateDate() {
 }
 
 function speedLabel(s) {
+  if (s < 1.5 / 86400) return '1 с (реальное время)';
+  if (s < 1 / 1440) return `${fmt(s * 86400, 0)} с`;
   if (s < 1 / 24) return `${fmt(s * 1440, 1)} мин`;
   if (s < 1) return `${fmt(s * 24, 1)} ч`;
   if (s < 365) return `${fmt(s, 1)} сут`;
   return `${fmt(s / 365.256, 1)} лет`;
 }
-// шкала скорости: 0..1000 → 0.0005..2000 суток/с (логарифмическая)
-const SPEED_MIN = 0.0005, SPEED_MAX = 2000;
+// шкала скорости: 0..1000 ↔ от реального времени до ~5 лет в секунду (логарифмическая)
+const SPEED_MIN = 1 / 86400, SPEED_MAX = 2000;
+const SPEED_STEPS = [1 / 86400, 1 / 1440, 10 / 1440, 1 / 24, 6 / 24, 1, 3, 7, 15, 30, 91.3, 182.6, 365.25, 730.5, 1826];
 const speedToUI = (s) => (1000 * Math.log(s / SPEED_MIN)) / Math.log(SPEED_MAX / SPEED_MIN);
 const uiToSpeed = (u) => SPEED_MIN * Math.pow(SPEED_MAX / SPEED_MIN, u / 1000);
 
-function setupControls() {
-  const speed = $('#speed');
-  speed.value = speedToUI(state.speed);
-  const refreshSpeed = () => ($('#speedValue').textContent = `1 с = ${speedLabel(state.speed)}`);
-  speed.addEventListener('input', () => {
-    state.speed = uiToSpeed(+speed.value);
-    refreshSpeed();
-  });
-  refreshSpeed();
+function setSpeed(v) {
+  state.speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, v));
+  $('#speed').value = speedToUI(state.speed);
+  refreshTime();
+}
+function stepSpeed(dir) {
+  const s = state.speed;
+  const next = dir > 0 ? SPEED_STEPS.find((x) => x > s * 1.01) : [...SPEED_STEPS].reverse().find((x) => x < s / 1.01);
+  if (next) setSpeed(next);
+}
+function setPaused(p) {
+  state.paused = p;
+  refreshTime();
+}
+function refreshTime() {
+  const text = `1 с = ${speedLabel(state.speed)}`;
+  $('#speedValue').textContent = text;
+  $('#dockSpeed').textContent = state.paused ? 'Пауза' : (state.direction < 0 ? '◂ ' : '') + text;
+  const play = $('#play');
+  play.innerHTML = state.paused ? ICONS.play : ICONS.pause;
+  play.title = state.paused ? 'Пуск (пробел)' : 'Пауза (пробел)';
+  play.setAttribute('aria-label', play.title);
+  $('#reverse').classList.toggle('active', state.direction < 0);
+  $('#slower').disabled = state.speed <= SPEED_STEPS[0] * 1.01;
+  $('#faster').disabled = state.speed >= SPEED_STEPS[SPEED_STEPS.length - 1] / 1.01;
+}
 
-  const playBtn = $('#play');
-  const refreshPlay = () => {
-    playBtn.textContent = state.paused ? '▶' : '❚❚';
-    playBtn.title = state.paused ? 'Продолжить (пробел)' : 'Пауза (пробел)';
-  };
-  playBtn.addEventListener('click', () => {
-    state.paused = !state.paused;
-    refreshPlay();
+const ICONS = {
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="5.5" width="4" height="13" rx="1" fill="currentColor"/><rect x="13.5" y="5.5" width="4" height="13" rx="1" fill="currentColor"/></svg>',
+};
+
+// ---------- интерфейс ----------
+function setMode(m) {
+  state.mode = m;
+  $('#mode').value = m;
+  $('#sizeRow').classList.toggle('disabled', m === 'true');
+  rebuildAll();
+}
+
+function setShow(key, v) {
+  state.show[key] = v;
+  const cb = document.querySelector(`[data-show="${key}"]`);
+  if (cb) cb.checked = v;
+}
+
+function resetAll() {
+  setCut(null);
+  bodies.forEach((b) => (b.cur = freshParams(b.base)));
+  setSunMass(1);
+  rebuildAll();
+  markClimate();
+}
+
+function setupControls() {
+  $('#speed').addEventListener('input', (e) => {
+    state.speed = uiToSpeed(+e.target.value);
+    refreshTime();
   });
-  $('#reverse').addEventListener('click', (e) => {
+  $('#play').addEventListener('click', () => setPaused(!state.paused));
+  $('#slower').addEventListener('click', () => stepSpeed(-1));
+  $('#faster').addEventListener('click', () => stepSpeed(1));
+  $('#reverse').addEventListener('click', () => {
     state.direction *= -1;
-    e.currentTarget.classList.toggle('active', state.direction < 0);
+    refreshTime();
   });
+  $('#realtime').addEventListener('click', () => setSpeed(SPEED_MIN));
   $('#today').addEventListener('click', () => {
     state.simDays = (Date.now() - J2000) / 86400000;
     bodies.forEach((b) => (b.M = initialAnomaly(b.base)));
   });
   document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if (e.code === 'Space') {
       e.preventDefault();
-      state.paused = !state.paused;
-      refreshPlay();
+      setPaused(!state.paused);
     } else if (e.key === 'Escape') select(null);
     else if (e.key === '0') select('sun');
     else if (/^[1-8]$/.test(e.key)) select(bodies[+e.key - 1]);
+    else if (e.key === ']' || e.key === '+' || e.key === '=') stepSpeed(1);
+    else if (e.key === '[' || e.key === '-') stepSpeed(-1);
+    else if ((e.key === 'c' || e.key === 'с') && state.selected) toggleCut();
   });
-  refreshPlay();
 
   $('#mode').addEventListener('change', (e) => {
-    state.mode = e.target.value;
-    $('#sizeRow').classList.toggle('disabled', state.mode === 'true');
-    rebuildAll();
+    setMode(e.target.value);
     select(state.selected);
     toast(
       {
@@ -570,8 +872,7 @@ function setupControls() {
     cb.addEventListener('change', () => (state.show[cb.dataset.show] = cb.checked));
   });
 
-  const sunMass = $('#sunMass');
-  sunMass.addEventListener('input', () => setSunMass(+sunMass.value));
+  $('#sunMass').addEventListener('input', (e) => setSunMass(+e.target.value));
 
   $('#userMass').value = state.userMass;
   $('#userMass').addEventListener('input', (e) => {
@@ -580,14 +881,23 @@ function setupControls() {
   });
 
   $('#resetAll').addEventListener('click', () => {
-    bodies.forEach((b) => (b.cur = freshParams(b.base)));
-    setSunMass(1);
-    rebuildAll();
+    resetAll();
     renderInfo();
     toast('Все параметры возвращены к реальным значениям.');
   });
 
   document.querySelectorAll('#presets button').forEach((btn) => btn.addEventListener('click', () => runPreset(btn.dataset.preset)));
+
+  const list = $('#scenarioList');
+  SCENARIOS.forEach((s) => {
+    const btn = document.createElement('button');
+    btn.innerHTML = `<b>${s.title}</b><span>${s.subtitle} · ${s.steps.length} шагов</span>`;
+    btn.addEventListener('click', () => startScenario(s));
+    list.appendChild(btn);
+  });
+  $('#scPrev').addEventListener('click', () => gotoStep(scenario.step - 1));
+  $('#scNext').addEventListener('click', () => (scenario.step < scenario.s.steps.length - 1 ? gotoStep(scenario.step + 1) : endScenario()));
+  $('#scClose').addEventListener('click', endScenario);
 
   const bar = $('#planetbar');
   [{ id: 'sun', name: 'Солнце', color: '#ffb43a' }, ...PLANETS.map((p) => ({ id: p.id, name: p.name, color: p.colors[1] }))].forEach((p, i) => {
@@ -608,6 +918,7 @@ function setupControls() {
 
   $('#toggleControls').addEventListener('click', () => document.body.classList.toggle('controls-open'));
   $('#closeInfo').addEventListener('click', () => select(null));
+  refreshTime();
 }
 
 function setSunMass(v) {
@@ -615,6 +926,7 @@ function setSunMass(v) {
   $('#sunMass').value = v;
   $('#sunMassValue').textContent = `${fmt(v, 2)} M☉ · светимость × ${fmt(luminosity(v), 2)}`;
   rebuildAll();
+  markClimate();
   renderStats();
 }
 
@@ -643,6 +955,36 @@ function updateViewOffset() {
   camera.updateProjectionMatrix();
 }
 
+function interiorHTML(id, radiusKm) {
+  const layers = INTERIOR[id];
+  return `
+    <h3>Внутреннее строение</h3>
+    <button id="cutBtn" class="cut wide"></button>
+    <ol class="layers">
+      ${layers.map((L, i) => {
+        const inner = layers[i + 1]?.r ?? 0;
+        const from = Math.round((1 - L.r) * radiusKm), to = Math.round((1 - inner) * radiusKm);
+        return `<li>
+          <span class="swatch" style="background:${L.color}"></span>
+          <div><b>${L.name}</b><small>глубина ${fmt(from, 0)} – ${fmt(to, 0)} км · ${L.temp}</small><p>${L.text}</p></div>
+        </li>`;
+      }).join('')}
+    </ol>`;
+}
+
+function renderCutButton() {
+  const btn = $('#cutBtn');
+  if (!btn) return;
+  const on = state.cut && state.cut === state.selected;
+  btn.textContent = on ? 'Собрать обратно' : 'Разрезать и заглянуть внутрь';
+  btn.classList.toggle('active', !!on);
+}
+
+function toggleCut() {
+  if (!state.selected) return;
+  setCut(state.cut === state.selected ? null : state.selected);
+}
+
 function renderInfo() {
   const sel = state.selected;
   document.body.classList.toggle('info-open', !!sel);
@@ -665,6 +1007,7 @@ function renderInfo() {
         <div><dt>Температура поверхности</dt><dd>≈ ${fmt(SUN.tempC, 0)} °C</dd></div>
         <div><dt>Светимость</dt><dd>× ${fmt(luminosity(state.sunMass), 2)} от текущей</dd></div>
       </dl>
+      ${interiorHTML('sun', SUN.radiusKm)}
       <p class="note">Изменить массу Солнца можно на левой панели. Тогда изменятся все орбитальные периоды
       (третий закон Кеплера) и температуры планет — звезда станет ярче или тусклее.</p>`;
   } else {
@@ -673,22 +1016,26 @@ function renderInfo() {
       <dl class="stats live">
         <div><dt>Расстояние до Солнца</dt><dd id="liveDist">—</dd></div>
         <div><dt>Скорость на орбите</dt><dd id="liveSpeed">—</dd></div>
+        <div class="wide"><dt>Поверхность и климат</dt><dd class="text" id="climate">—</dd></div>
       </dl>
       <h3>Характеристики</h3>
       <dl class="stats" id="stats"></dl>
       <h3>Лаборатория «Что если?»</h3>
-      <p class="note">Меняйте параметры — модель и все расчёты обновятся сразу.</p>
+      <p class="note">Меняйте параметры — модель, поверхность и все расчёты обновятся сразу.</p>
       <div class="lab">
         ${LAB.map((s) => `
           <label class="slider">
             <span class="row"><span>${s.label}</span><output id="out-${s.key}"></output></span>
-            <input type="range" data-key="${s.key}" min="${s.log ? 0 : s.min}" max="${s.log ? 1000 : s.max}" step="${s.log ? 1 : s.step}">
+            <input type="range" id="lab-${s.key}" data-key="${s.key}" min="${s.log ? 0 : s.min}" max="${s.log ? 1000 : s.max}" step="${s.log ? 1 : s.step}">
           </label>`).join('')}
       </div>
-      <button class="ghost wide" id="resetPlanet">Вернуть реальные значения</button>`;
+      <button class="ghost wide" id="resetPlanet">Вернуть реальные значения</button>
+      ${interiorHTML(sel.base.id, sel.base.radiusKm * sel.cur.radiusMul)}`;
   }
   $('#infoBody').innerHTML = html;
   info.scrollTop = 0;
+  $('#cutBtn').addEventListener('click', toggleCut);
+  renderCutButton();
   if (sel === 'sun') return;
 
   info.querySelectorAll('.lab input').forEach((input) => {
@@ -698,6 +1045,7 @@ function renderInfo() {
       sel.cur[s.key] = fromUI(s, +input.value);
       if (s.key === 'a' || s.key === 'e') rebuildOrbit(sel);
       if (s.key === 'radiusMul' || s.key === 'tilt') applyBodyScale(sel);
+      markClimate(sel);
       renderStats();
     });
   });
@@ -705,6 +1053,7 @@ function renderInfo() {
     sel.cur = freshParams(sel.base);
     applyBodyScale(sel);
     rebuildOrbit(sel);
+    markClimate(sel);
     renderInfo();
   });
   renderStats();
@@ -720,9 +1069,9 @@ function seasonsText(tilt) {
 
 function waterText(t, kind) {
   if (kind === 'gas' || kind === 'ice') return '<span class="badge">Нет твёрдой поверхности — температура указана для верхних облаков</span>';
-  if (t < 0) return '<span class="badge cold">❄ Вода на поверхности замерзает</span>';
-  if (t <= 100) return '<span class="badge ok">💧 Вода может быть жидкой</span>';
-  return '<span class="badge hot">🔥 Вода выкипает</span>';
+  if (t < 0) return '<span class="badge cold">Вода на поверхности замерзает</span>';
+  if (t <= 100) return '<span class="badge ok">Вода может быть жидкой</span>';
+  return '<span class="badge hot">Вода выкипает</span>';
 }
 
 function durationText(hours) {
@@ -733,7 +1082,7 @@ function durationText(hours) {
 
 function renderStats() {
   const sel = state.selected;
-  if (!sel || sel === 'sun') return;
+  if (!sel || sel === 'sun' || !$('#stats')) return;
   LAB.forEach((s) => {
     const out = $(`#out-${s.key}`);
     if (!out) return;
@@ -742,10 +1091,10 @@ function renderStats() {
     if (s.key === 'radiusMul') v = `× ${fmt(sel.cur.radiusMul, 2)}`;
     out.textContent = v;
   });
-  const signedRot = sel.cur.rotation * (sel.cur.tilt > 90 ? -1 : 1);
-  const s = computeStats(sel.base, { ...sel.cur, rotation: signedRot }, state.sunMass, state.userMass);
+  const s = statsOf(sel);
   const real = sel.base;
   const year = s.T < 2 ? `${fmt(s.T * 365.256, 1)} земных сут` : `${fmt(s.T, 2)} земных лет`;
+  $('#climate').textContent = climateText(sel, s.tSurfC);
   $('#stats').innerHTML = `
     <div><dt>Год (оборот вокруг Солнца)</dt><dd>${year}</dd></div>
     <div><dt>Солнечные сутки</dt><dd>${durationText(s.solarDay)}</dd></div>
@@ -772,62 +1121,111 @@ function updateLive() {
   const E = eccentricAnomaly(sel.M, sel.cur.e);
   const r = sel.cur.a * (1 - sel.cur.e * Math.cos(E));
   const v = 29.78 * Math.sqrt(state.sunMass * (2 / r - 1 / sel.cur.a));
-  $('#liveDist').textContent = `${fmt(r, 3)} а.е. · ${fmt(r * AU_KM / 1e6, 1)} млн км`;
+  $('#liveDist').textContent = `${fmt(r, 3)} а.е. · ${fmt((r * AU_KM) / 1e6, 1)} млн км`;
   $('#liveSpeed').textContent = `${fmt(v, 2)} км/с`;
 }
 
 // ---------- опыты ----------
+const byId = (id) => bodies.find((b) => b.base.id === id);
+function setParam(id, key, value) {
+  const b = byId(id);
+  b.cur[key] = value;
+  applyBodyScale(b);
+  rebuildOrbit(b);
+  markClimate(b);
+  if (state.selected === b) renderInfo();
+}
+
 const PRESETS = {
   'earth-venus': () => {
-    const e = bodies[2];
-    e.cur.a = 0.723;
-    afterEdit(e);
-    return 'Земля на орбите Венеры: солнечного света почти вдвое больше, год короче — 225 суток, а средняя температура поднимается выше +50 °C.';
+    setParam('earth', 'a', 0.723);
+    select(byId('earth'));
+    return 'Земля на орбите Венеры: солнечного света почти вдвое больше, год короче — 225 суток. Средняя температура около +60 °C: леса сменяются пустынями.';
   },
   'earth-mars': () => {
-    const e = bodies[2];
-    e.cur.a = 1.524;
-    afterEdit(e);
-    return 'Земля на орбите Марса: света на 57 % меньше, год длится 687 суток, океаны начинают замерзать.';
+    setParam('earth', 'a', 1.524);
+    select(byId('earth'));
+    return 'Земля на орбите Марса: света на 57 % меньше, год длится 687 суток, а льды покрывают почти всю планету.';
   },
   'earth-ecc': () => {
-    const e = bodies[2];
-    e.cur.e = 0.5;
-    afterEdit(e);
-    state.speed = 40;
-    $('#speed').value = speedToUI(40);
-    $('#speed').dispatchEvent(new Event('input'));
+    setParam('earth', 'e', 0.5);
+    select(byId('earth'));
+    setSpeed(40);
     return 'Вытянутая орбита: посмотрите, как Земля разгоняется возле Солнца и замедляется вдали от него — это второй закон Кеплера.';
   },
   'earth-tilt': () => {
-    const e = bodies[2];
-    e.cur.tilt = 0;
-    state.show.axes = true;
-    $('[data-show="axes"]').checked = true;
-    afterEdit(e);
+    setParam('earth', 'tilt', 0);
+    setShow('axes', true);
+    select(byId('earth'));
     return 'Без наклона оси на Земле не было бы времён года: на каждой широте круглый год одна и та же погода.';
   },
   'jupiter-star': () => {
-    const j = bodies[4];
-    j.cur.massMul = 80;
-    afterEdit(j);
+    setParam('jupiter', 'massMul', 80);
+    select(byId('jupiter'));
     return 'Юпитер в 80 раз тяжелее: при такой массе давление в ядре запустило бы термоядерный синтез — Юпитер стал бы маленькой красной звездой.';
   },
   'sun-heavy': () => {
     setSunMass(1.5);
+    setShow('hz', true);
     select(null);
-    return 'Солнце в 1,5 раза массивнее: светит в 5 раз ярче, планеты обращаются быстрее, а зона, где возможна жидкая вода, отодвигается к Марсу. Включите «Обитаемую зону».';
+    return 'Солнце в 1,5 раза массивнее: светит в 5 раз ярче, планеты обращаются быстрее, а зона, где возможна жидкая вода, отодвигается к Марсу.';
   },
 };
-function afterEdit(b) {
-  applyBodyScale(b);
-  rebuildOrbit(b);
-  select(b);
-}
 function runPreset(id) {
+  endScenario();
   const msg = PRESETS[id]();
   toast(msg, 9000);
   document.body.classList.remove('controls-open');
+}
+
+// ---------- сценарии ----------
+const api = {
+  reset: resetAll,
+  select: (id) => select(id === 'sun' ? 'sun' : id ? byId(id) : null),
+  set: setParam,
+  speed: (v) => {
+    setSpeed(v);
+    setPaused(false);
+  },
+  show: setShow,
+  cut: (id) => setCut(id === 'sun' ? 'sun' : byId(id)),
+  sunMass: setSunMass,
+  mode: (m) => {
+    if (state.mode !== m) setMode(m);
+  },
+};
+const SCENARIOS = buildScenarios(api);
+const scenario = { s: null, step: 0 };
+
+function startScenario(s) {
+  scenario.s = s;
+  scenario.step = 0;
+  document.body.classList.add('scenario-on');
+  document.body.classList.remove('controls-open');
+  $('#scTitle').textContent = s.title;
+  $('#scDots').innerHTML = s.steps.map((_, i) => `<button aria-label="Шаг ${i + 1}" data-i="${i}"></button>`).join('');
+  $('#scDots').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => gotoStep(+b.dataset.i)));
+  gotoStep(0);
+}
+function gotoStep(i) {
+  const s = scenario.s;
+  if (!s || i < 0 || i >= s.steps.length) return;
+  // при переходе назад или вперёд через несколько шагов состояние собирается заново
+  if (i !== scenario.step + 1) for (let k = 0; k < i; k++) s.steps[k].run();
+  scenario.step = i;
+  const st = s.steps[i];
+  st.run();
+  $('#scStep').textContent = `Шаг ${i + 1} из ${s.steps.length}`;
+  $('#scHead').textContent = st.title;
+  $('#scText').textContent = st.text;
+  $('#scPrev').disabled = i === 0;
+  $('#scNext').textContent = i === s.steps.length - 1 ? 'Завершить' : 'Далее';
+  $('#scDots').querySelectorAll('button').forEach((b, k) => b.classList.toggle('active', k === i));
+}
+function endScenario() {
+  if (!scenario.s) return;
+  scenario.s = null;
+  document.body.classList.remove('scenario-on');
 }
 
 let toastTimer;
@@ -859,5 +1257,5 @@ window.addEventListener('resize', () => {
   updateDate();
   $('#loading').classList.add('done');
   setTimeout(() => $('#hint').classList.add('hide'), 9000);
-  tick();
+  requestAnimationFrame(tick);
 })();
