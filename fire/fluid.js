@@ -75,7 +75,8 @@ export class Fluid {
         float d = burnDist(vUv, T, uAspect);
         float band = exp(-max(d, 0.0) / 0.012) * step(-0.004, d) * step(3.0, T) * (1.0 - ss(5.85, 6.0, T));
         vec2 p = vec2(vUv.x * uAspect, vUv.y);
-        float patchy = 0.3 + 1.4 * noise(vec2(p.x * 9.0, T * 1.7)) * noise(vec2(p.x * 23.0 + 4.0, T * 3.1));
+        // топливо горит очагами: отдельные «струи» дают отдельные столбы пламени
+        float patchy = 0.15 + 3.4 * pow(noise(vec2(p.x * 9.0, T * 1.7)), 3.0) + 0.6 * noise(vec2(p.x * 23.0 + 4.0, T * 3.1));
         float heat = (0.3 * sm + 2.2 * fl + 3.2 * fx) * patchy;
         c.r += band * heat * uDt * 9.0;
         c.g += band * (0.9 * sm + 0.35 * fl + 0.15 * fx) * uDt * 2.2;
@@ -112,6 +113,9 @@ export class Fluid {
         float band = exp(-max(d, 0.0) / 0.015) * step(-0.004, d) * step(3.0, T);
         vec2 p = vec2(vUv.x * uAspect, vUv.y);
         v.x += band * uDt * (noise(vec2(p.x * 6.0, T * 2.0)) - 0.5) * 900.0 * (0.3 + fl + fx);
+        // в очагах газ бьёт вверх струёй — языки вытягиваются
+        float jet = pow(noise(vec2(p.x * 9.0, T * 1.7)), 3.0);
+        v.y += band * jet * uDt * 2600.0 * (0.3 * ss(3.0, 4.0, T) + fl + fx);
         float boom = step(3.0, T) * exp(-(T - 3.0) * 9.0);
         vec2 q = (vUv - 0.5) * vec2(uAspect, 1.0);
         v += boom * normalize(q + 1e-4) * exp(-dot(q, q) / 0.01) * uDt * 9000.0;
@@ -235,7 +239,7 @@ export class Fluid {
     this.mAdvect.uniforms.uTexel.value = this.texel;
     this.mAdvect.uniforms.uVel.value = vel.read.texture;
     this.mAdvect.uniforms.uSrc.value = dye.read.texture;
-    this.mAdvect.uniforms.uDiss.value.set(0.976, 0.986, 1, 1);
+    this.mAdvect.uniforms.uDiss.value.set(0.982, 0.986, 1, 1);
     this.pass(this.mAdvect, dye.write);
     dye.swap();
     const s = this.mDyeSource.uniforms;

@@ -42,9 +42,12 @@ const GLSL_COMMON = /* glsl */ `
   // тёмно-красный → оранжевый → жёлтый → почти белый
   vec3 fireColor(float t) {
     t = clamp(t, 0.0, 1.0);
-    vec3 c = mix(vec3(0.2, 0.015, 0.0), vec3(0.92, 0.2, 0.015), ss(0.0, 0.42, t));
-    c = mix(c, vec3(1.0, 0.56, 0.12), ss(0.38, 0.72, t));
-    return mix(c, vec3(1.0, 0.93, 0.78), ss(0.72, 1.0, t));
+    vec3 c = mix(vec3(0.12, 0.006, 0.0), vec3(0.55, 0.03, 0.0), ss(0.0, 0.2, t)); // багровый
+    c = mix(c, vec3(0.92, 0.16, 0.01), ss(0.15, 0.38, t)); // красный
+    c = mix(c, vec3(1.0, 0.42, 0.04), ss(0.33, 0.55, t)); // оранжевый
+    c = mix(c, vec3(1.0, 0.7, 0.2), ss(0.5, 0.72, t)); // жёлтый
+    c = mix(c, vec3(1.0, 0.88, 0.56), ss(0.68, 0.86, t)); // бледно-жёлтый
+    return mix(c, vec3(1.0, 0.97, 0.9), ss(0.84, 1.0, t)); // почти белый
   }
   // высота линии огня (0 — низ экрана, 1 — верх)
   float frontY(float T) {
@@ -340,22 +343,41 @@ function buildPage(tex, aspect) {
         float flick = 0.65 + 0.7 * noise(vec2(p.x * 14.0, T * 6.0));
         // тлеющая кромка: тонкая раскалённая линия и тёплый ореол
         float edge = exp(-max(d, 0.0) / 0.008) * alpha;
-        vec3 em = fireColor(edge * 0.95 + 0.05) * edge * glowAmt * flick * 1.6;
+        vec3 em = fireColor(edge * 0.95 + 0.05) * edge * glowAmt * flick * 1.2;
         em += fireColor(0.42) * exp(-max(d, 0.0) / 0.045) * alpha * glowAmt * 0.18;
         // искорки, перебегающие по углю
         float sp = step(0.84, noise(p * 95.0 + vec2(0.0, T * 0.7))) * charred * alpha * (1.0 - edge);
         em += fireColor(0.78) * sp * glowAmt * (0.5 + 0.8 * sin(T * 11.0 + p.x * 50.0 + p.y * 20.0));
-        // мелкие язычки у самой кромки (детали, которые не поймает сетка симуляции)
-        float lick = fbm(vec2(p.x * 22.0, p.y * 9.0 - T * 4.5));
-        float lh = max(d, 0.0) / (0.012 + 0.03 * fl + 0.05 * fx);
-        em += fireColor(0.85) * pow(clamp(lick * 1.8 - 0.55 - lh, 0.0, 1.0), 1.4) * step(-0.004, d) * (0.4 * sm + fl + fx) * 2.0;
+        // языки пламени вдоль кромки: у каждого своя высота и своя температура
+        float xs = p.x;
+        float colH = pow(noise(vec2(xs * 7.0, T * 0.6)), 1.8) * 1.6 + 0.25 * noise(vec2(xs * 23.0, T * 1.3));
+        float Ht = (0.035 * sm + 0.17 * fl + 0.42 * fx) * (0.25 + colH);
+        float hf = max(d, 0.0) / max(Ht, 1e-3); // 0 у основания, 1 у кончика
+        // пряди извиваются и бегут вверх; гребни шума дают вытянутые «листы» огня
+        float sway = (fbm(vec2(xs * 3.0, p.y * 2.0 - T * 1.2)) - 0.5) * 0.12;
+        float rid = fbm(vec2((xs + sway) * 16.0, p.y * 4.0 - T * 5.5));
+        rid = 1.0 - abs(2.0 * rid - 1.0);
+        float body = fbm(vec2((xs + sway) * 9.0, p.y * 2.6 - T * 3.6));
+        float tongue = clamp((rid * 0.6 + body * 0.9) * 1.25 - hf * 1.05, 0.0, 1.0) * step(-0.004, d);
+        // кончики рвутся на отлетающие клочья
+        tongue *= ss(1.15, 0.6, hf + (noise(vec2(xs * 30.0, p.y * 12.0 - T * 7.0)) - 0.5) * 0.5);
+        // температура: жарко у основания, к кончикам остывает до красного;
+        // соседние языки горят по-разному — одни жёлто-белые, другие тускло-красные
+        float heatVar = 0.35 + 0.75 * noise(vec2(xs * 4.5 + 3.0, T * 0.35));
+        float tempT = clamp((1.0 - hf * 0.9) * heatVar * (0.45 + 0.6 * tongue), 0.0, 1.0);
+        float flameAmt = 0.35 * sm + 0.8 * fl + 1.1 * fx;
+        em += fireColor(tempT) * pow(tongue, 1.25) * flameAmt * (0.3 + 1.5 * tempT * tempT);
+        // тонкий синеватый слой у кромки, где свежее топливо сгорает полностью
+        float blue = exp(-max(d, 0.0) / 0.006) * step(0.0, d) * (fl + fx) * (0.5 + 0.5 * noise(vec2(xs * 40.0, T * 3.0)));
+        em += vec3(0.15, 0.32, 1.0) * blue * 0.55;
 
         // пламя из симуляции + мелкая турбулентность поверх
         // языки: вытянутая вверх турбулентность рвёт поле температуры на пряди
         float tongues = fbm(vec2(p.x * 13.0, p.y * 5.0 - T * 4.6) + vec2(fbm(vec2(p.x * 6.0, p.y * 3.0 - T * 2.2)) * 1.6, 0.0));
         float detail = pow(tongues, 1.6) * 2.6;
         float ft = temp * detail;
-        vec3 fire = fireColor(clamp(ft * 0.45, 0.0, 1.0)) * pow(ft, 1.15) * 1.7;
+        float simHeat = 0.6 + 0.6 * noise(vec2(p.x * 3.5 + 9.0, p.y * 2.0 - T * 0.8));
+        vec3 fire = fireColor(clamp(ft * 0.26 * simHeat, 0.0, 1.0)) * pow(ft, 1.1) * 0.9;
 
         // вспышка взрыва розы (короткая, в центре)
         float boom = step(3.0, T) * exp(-(T - 3.0) * 8.0);

@@ -90,7 +90,7 @@ export class Bloom {
         vec3 hi = 0.25 * (1.0 - exp(-over / 0.25));
         float peak = max(c.r, max(c.g, c.b));
         vec3 res = lo + hi;
-        return mix(res, vec3(max(res.r, max(res.g, res.b))), clamp((peak - 2.5) / 6.0, 0.0, 0.6));
+        return mix(res, vec3(max(res.r, max(res.g, res.b))), clamp((peak - 4.0) / 8.0, 0.0, 0.35));
       }
       void main() {
         vec4 sc = texture2D(uScene, vUv);
@@ -101,7 +101,7 @@ export class Bloom {
         float g = fract(sin(dot(vUv * 913.7, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
         // свет может быть ярче своей прозрачности — так свечение складывается со страницей под ним
         gl_FragColor = vec4(clamp(c + g * 0.012 * a, 0.0, 1.0), a);
-      }`, { uScene: { value: null }, uBloom: { value: null }, uStrength: { value: 0.9 } });
+      }`, { uScene: { value: null }, uBloom: { value: null }, uStrength: { value: 0.7 } });
   }
 
   pass(mat, target) {
