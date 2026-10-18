@@ -343,7 +343,7 @@ function buildPage(tex, aspect) {
         float flick = 0.65 + 0.7 * noise(vec2(p.x * 14.0, T * 6.0));
         // тлеющая кромка: тонкая раскалённая линия и тёплый ореол
         float edge = exp(-max(d, 0.0) / 0.008) * alpha;
-        vec3 em = fireColor(edge * 0.95 + 0.05) * edge * glowAmt * flick * 1.2;
+        vec3 em = fireColor(edge * 0.95 + 0.05) * edge * glowAmt * flick * 0.85;
         em += fireColor(0.42) * exp(-max(d, 0.0) / 0.045) * alpha * glowAmt * 0.18;
         // искорки, перебегающие по углю
         float sp = step(0.84, noise(p * 95.0 + vec2(0.0, T * 0.7))) * charred * alpha * (1.0 - edge);
@@ -366,7 +366,7 @@ function buildPage(tex, aspect) {
         float heatVar = 0.35 + 0.75 * noise(vec2(xs * 4.5 + 3.0, T * 0.35));
         float tempT = clamp((1.0 - hf * 0.9) * heatVar * (0.45 + 0.6 * tongue), 0.0, 1.0);
         float flameAmt = 0.35 * sm + 0.8 * fl + 1.1 * fx;
-        em += fireColor(tempT) * pow(tongue, 1.25) * flameAmt * (0.3 + 1.5 * tempT * tempT);
+        em += fireColor(tempT) * pow(tongue, 1.4) * flameAmt * (0.2 + 0.95 * tempT * tempT);
         // тонкий синеватый слой у кромки, где свежее топливо сгорает полностью
         float blue = exp(-max(d, 0.0) / 0.006) * step(0.0, d) * (fl + fx) * (0.5 + 0.5 * noise(vec2(xs * 40.0, T * 3.0)));
         em += vec3(0.15, 0.32, 1.0) * blue * 0.55;
@@ -377,7 +377,7 @@ function buildPage(tex, aspect) {
         float detail = pow(tongues, 1.6) * 2.6;
         float ft = temp * detail;
         float simHeat = 0.6 + 0.6 * noise(vec2(p.x * 3.5 + 9.0, p.y * 2.0 - T * 0.8));
-        vec3 fire = fireColor(clamp(ft * 0.26 * simHeat, 0.0, 1.0)) * pow(ft, 1.1) * 0.9;
+        vec3 fire = fireColor(clamp(ft * 0.26 * simHeat, 0.0, 1.0)) * pow(ft, 1.2) * 0.55;
 
         // вспышка взрыва розы (короткая, в центре)
         float boom = step(3.0, T) * exp(-(T - 3.0) * 8.0);
@@ -399,7 +399,7 @@ function buildPage(tex, aspect) {
         a = a + sa * (1.0 - a);
         vec3 light = em + fire;
         rgb += light;
-        a = max(a, clamp(max(light.r, max(light.g, light.b)) * 0.7, 0.0, 1.0));
+        a = max(a, clamp(max(light.r, max(light.g, light.b)) * 0.3, 0.0, 0.85));
         gl_FragColor = vec4(rgb, a);
       }`.replace('SIM_START', SIM_START.toFixed(2)),
     transparent: true,

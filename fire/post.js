@@ -96,12 +96,12 @@ export class Bloom {
         vec4 sc = texture2D(uScene, vUv);
         vec3 bl = texture2D(uBloom, vUv).rgb * uStrength;
         vec3 c = shoulder(sc.rgb + bl);
-        float a = clamp(max(sc.a, max(bl.r, max(bl.g, bl.b)) * 0.9), 0.0, 1.0);
+        float a = clamp(max(sc.a, max(bl.r, max(bl.g, bl.b)) * 0.45), 0.0, 1.0);
         // зерно, чтобы градиенты не «полосили»
         float g = fract(sin(dot(vUv * 913.7, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
         // свет может быть ярче своей прозрачности — так свечение складывается со страницей под ним
         gl_FragColor = vec4(clamp(c + g * 0.012 * a, 0.0, 1.0), a);
-      }`, { uScene: { value: null }, uBloom: { value: null }, uStrength: { value: 0.7 } });
+      }`, { uScene: { value: null }, uBloom: { value: null }, uStrength: { value: 0.5 } });
   }
 
   pass(mat, target) {
