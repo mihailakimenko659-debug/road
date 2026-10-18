@@ -9,14 +9,25 @@ const smoothstep = (e0, e1, x) => {
   return t * t * (3 - 2 * t);
 };
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const easeIn = (t) => t * t * t;
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 // затухающая пружина: вещь «садится» на место с маленьким отскоком
 const spring = (t) => (t >= 1 ? 1 : 1 - Math.exp(-6.5 * t) * Math.cos(10.5 * t));
+const DEG = Math.PI / 180;
 
 const sticky = $('#sticky'), scrolly = $('#scrolly'), canvas = $('#cloth');
 const hint = $('#hint'), header = $('#header'), stageHead = $('#stageHead'), grid = $('#grid');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let W = 0, H = 0;
+
+// Сценарий прокрутки (доли от 0 до 1)
+const T = {
+  unzip: [0.02, 0.62], // бегунок проходит всю молнию, уходя в глубину
+  tilt: [0.04, 0.6], // плоскость ткани наклоняется
+  widen: [0.36, 0.62], // разрез раскрывается шире
+  exit: [0.5, 0.8], // половины уезжают за края экрана
+};
+const phase = ([a, b], p) => clamp((p - a) / (b - a));
 
 // ======================================================================
 // Карточки коллекции
@@ -34,7 +45,8 @@ const cards = PRODUCTS.map((p, i) => {
 
 let seed = 7;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-const TYPES = ['far', 'left', 'right', 'top', 'bottom', 'spiral', 'far', 'toss'];
+// большинство вещей вылетает из глубины разреза, остальные — сбоку и по дуге
+const TYPES = ['depth', 'depth', 'depth', 'left', 'right', 'toss', 'depth', 'spiral'];
 cards.forEach((c) => {
   c.type = TYPES[Math.floor(rnd() * TYPES.length)];
   c.start = 0.3 + rnd() * 0.42;
@@ -55,6 +67,11 @@ function layoutCards() {
   grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
   cards.forEach((c, i) => (c.el.hidden = i >= visibleCards));
   $('#stageCount').textContent = `${visibleCards} вещей · листайте дальше`;
+  // центр каждой карточки в координатах экрана (без учёта трансформаций)
+  cards.forEach((c) => {
+    c.cx = grid.offsetLeft + c.el.offsetLeft + c.el.offsetWidth / 2;
+    c.cy = grid.offsetTop + c.el.offsetTop + c.el.offsetHeight / 2;
+  });
 }
 
 function flight(c, t) {
@@ -63,9 +80,14 @@ function flight(c, t) {
   const air = 1 - easeOut(clamp(t * 1.15)); // «высота» над столом — для тени
   let x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = 1;
   switch (c.type) {
-    case 'far':
-      x = c.fx * W * 0.25 * inv; y = c.fy * H * 0.25 * inv; z = -2600 * inv; rz = c.rz * inv; rx = 40 * inv;
+    case 'depth': {
+      // из точки, куда уходит молния, по дуге к своему месту
+      const sx = W / 2 - c.cx + c.fx * 40, sy = H * 0.72 - c.cy;
+      const arc = Math.sin(clamp(t) * Math.PI) * H * 0.12;
+      x = sx * inv; y = sy * inv - arc; z = -3200 * inv + 180 * air;
+      rx = 75 * inv; rz = c.rz * 0.35 * inv; ry = c.ry * 0.3 * inv;
       break;
+    }
     case 'left':
     case 'right': {
       const side = c.type === 'left' ? -1 : 1;
@@ -73,38 +95,32 @@ function flight(c, t) {
       rz = c.rz * inv; ry = side * Math.abs(c.ry) * inv; z = 300 * air;
       break;
     }
-    case 'top':
-      y = -H * 1.15 * inv; x = c.fx * W * 0.2 * inv; rz = c.rz * inv; rx = 60 * inv; z = 200 * air;
-      break;
-    case 'bottom':
-      y = H * 1.15 * inv; x = c.fx * W * 0.2 * inv; rz = c.rz * 0.6 * inv; rx = -50 * inv; z = 200 * air;
-      break;
     case 'spiral': {
       const ang = c.a0 + inv * Math.PI * 3.2, rad = inv * Math.max(W, H) * 0.7;
       x = Math.cos(ang) * rad; y = Math.sin(ang) * rad; rz = inv * 360; s = 0.5 + 0.5 * e;
       break;
     }
-    case 'toss': // бросок по параболе с вращением
+    case 'toss':
       x = c.fx * W * 0.6 * inv; y = -Math.sin(clamp(t) * Math.PI) * H * 0.35 + H * 0.6 * inv; rz = c.rz * 1.6 * inv; rx = 30 * inv; z = 350 * air;
       break;
   }
-  rz += Math.sin(t * Math.PI * 3) * 8 * (1 - t);
+  rz += Math.sin(t * Math.PI * 3) * 6 * (1 - t);
   return {
     transform: `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,${z.toFixed(1)}px) rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${rz.toFixed(1)}deg) scale(${s.toFixed(3)})`,
     air,
-    sheen: rz + ry * 0.5,
+    sheen: rz + ry * 0.5 + rx * 0.3,
   };
 }
 
 function renderCards(p) {
-  const th = clamp((p - 0.5) / 0.14);
+  const th = clamp((p - 0.55) / 0.14);
   stageHead.style.opacity = th.toFixed(3);
   stageHead.style.transform = `translateY(${((1 - easeOut(th)) * 30).toFixed(1)}px)`;
   for (let i = 0; i < visibleCards; i++) {
     const c = cards[i];
     const t = clamp((p - c.start) / c.dur);
     const st = c.el.style;
-    st.opacity = clamp(t * 5).toFixed(3);
+    st.opacity = clamp(t * 4).toFixed(3);
     if (t >= 1) {
       st.transform = 'none';
       st.boxShadow = '';
@@ -137,7 +153,19 @@ try {
 
 const C = {}; // текущая сцена: всё, что пересоздаётся при изменении размеров
 const TOOTH = 11; // шаг зубцов, px
-const R_CURL = 18; // радиус сгиба отворота, px
+const R_CURL = 16; // радиус сгиба отворота, px
+
+// --- шум для складок ---
+const NOISE = new Float32Array(1024).map(() => Math.random());
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const h = (i, j) => NOISE[((Math.imul(i, 73856093) ^ Math.imul(j, 19349663)) >>> 0) & 1023];
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = h(xi, yi) + (h(xi + 1, yi) - h(xi, yi)) * u;
+  const b = h(xi, yi + 1) + (h(xi + 1, yi + 1) - h(xi, yi + 1)) * u;
+  return a + (b - a) * v;
+}
 
 function noiseCanvas(size, alpha) {
   const c = document.createElement('canvas');
@@ -167,37 +195,46 @@ function wrapLines(ctx, text, maxW) {
   return lines;
 }
 
-// Лицевая сторона: ткань, печать, тесьма молнии и строчка.
-function drawFront(ext) {
-  const { cw, ch, scale, m, mv } = ext;
+// Холст под текстуру: экран плюс поля сбоку, сверху и длинный «хвост» ткани снизу.
+function surface(ext, scale) {
   const c = document.createElement('canvas');
-  c.width = cw;
-  c.height = ch;
+  c.width = Math.round((W + 2 * ext.m) * scale);
+  c.height = Math.round((H + ext.mt + ext.mb) * scale);
   const ctx = c.getContext('2d');
   ctx.scale(scale, scale);
-  ctx.translate(m, mv);
+  ctx.translate(ext.m, ext.mt);
+  return { c, ctx, x0: -ext.m, y0: -ext.mt, w: W + 2 * ext.m, h: H + ext.mt + ext.mb };
+}
+
+function drawTape(ctx, r) {
+  ctx.fillStyle = '#17201a';
+  ctx.fillRect(W / 2 - 26, r.y0, 52, r.h);
+  ctx.fillStyle = 'rgba(255,255,255,0.035)';
+  for (let y = r.y0; y < r.y0 + r.h; y += 3) ctx.fillRect(W / 2 - 26, y, 52, 1);
+}
+
+// Лицевая сторона: ткань, печать, тесьма молнии и строчка.
+function drawFront(ext) {
+  const r = surface(ext, ext.scale);
+  const { ctx } = r;
   const P = W < 760 ? 16 : 28;
 
   ctx.fillStyle = '#26332b';
-  ctx.fillRect(-m, -mv, W + 2 * m, H + 2 * mv);
-  // неравномерность окраски
-  for (let i = 0; i < 26; i++) {
-    const x = Math.random() * W, y = Math.random() * H, r = 120 + Math.random() * 380;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    const light = Math.random() < 0.5;
-    g.addColorStop(0, light ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.06)');
+  ctx.fillRect(r.x0, r.y0, r.w, r.h);
+  for (let i = 0; i < 40; i++) {
+    const x = r.x0 + Math.random() * r.w, y = r.y0 + Math.random() * r.h, rad = 120 + Math.random() * 380;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, Math.random() < 0.5 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.06)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
-    ctx.fillRect(-m, -mv, W + 2 * m, H + 2 * mv);
+    ctx.fillRect(r.x0, r.y0, r.w, r.h);
   }
   ctx.fillStyle = ctx.createPattern(noiseCanvas(256, 0.07), 'repeat');
-  ctx.fillRect(-m, -mv, W + 2 * m, H + 2 * mv);
+  ctx.fillRect(r.x0, r.y0, r.w, r.h);
 
-  // печать
   ctx.fillStyle = '#e2652a';
   ctx.font = '500 13px "JetBrains Mono", monospace';
   if ('letterSpacing' in ctx) ctx.letterSpacing = '1px';
-  ctx.textBaseline = 'alphabetic';
   ctx.fillText('КОЛЛЕКЦИЯ ОСЕНЬ-ЗИМА 2026', P, 108);
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
 
@@ -215,81 +252,65 @@ function drawFront(ext) {
   lines.forEach((l, i) => ctx.fillText(l, P, H - P - 60 - (lines.length - 1 - i) * lh));
   if (W >= 760) {
     ctx.textAlign = 'right';
-    ctx.font = '400 12px "JetBrains Mono", monospace';
-    ctx.fillStyle = 'rgba(236,230,220,0.62)';
-    ctx.fillText('Арт. SH-26FW', W - P, H - P - 92);
-    ctx.fillStyle = '#ece6dc';
-    ctx.font = '500 12px "JetBrains Mono", monospace';
-    ctx.fillText('Молния №8, металл', W - P, H - P - 72);
-    ctx.fillStyle = 'rgba(236,230,220,0.62)';
-    ctx.font = '400 12px "JetBrains Mono", monospace';
-    ctx.fillText('320 г/м² · двойная строчка', W - P, H - P - 52);
+    const spec = [['400', 'rgba(236,230,220,0.62)', 'Арт. SH-26FW'], ['500', '#ece6dc', 'Молния №8, металл'], ['400', 'rgba(236,230,220,0.62)', '320 г/м² · двойная строчка']];
+    spec.forEach(([w, col, txt], i) => {
+      ctx.font = `${w} 12px "JetBrains Mono", monospace`;
+      ctx.fillStyle = col;
+      ctx.fillText(txt, W - P, H - P - 92 + i * 20);
+    });
   }
   // печать чуть «впитывается» в ткань
   ctx.globalCompositeOperation = 'multiply';
   ctx.fillStyle = ctx.createPattern(noiseCanvas(128, 0.12), 'repeat');
-  ctx.fillRect(-m, -mv, W + 2 * m, H + 2 * mv);
+  ctx.fillRect(r.x0, r.y0, r.w, r.h);
   ctx.globalCompositeOperation = 'source-over';
 
-  drawTape(ctx, ext);
+  drawTape(ctx, r);
   ctx.strokeStyle = 'rgba(236,230,220,0.42)';
   ctx.lineWidth = 1.5;
   ctx.setLineDash([7, 5]);
   [-34, 34].forEach((dx) => {
     ctx.beginPath();
-    ctx.moveTo(W / 2 + dx, -mv);
-    ctx.lineTo(W / 2 + dx, H + mv);
+    ctx.moveTo(W / 2 + dx, r.y0);
+    ctx.lineTo(W / 2 + dx, r.y0 + r.h);
     ctx.stroke();
   });
   ctx.setLineDash([]);
 
-  const tex = new THREE.CanvasTexture(c);
+  const tex = new THREE.CanvasTexture(r.c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
 }
 
-function drawTape(ctx, { mv }) {
-  ctx.fillStyle = '#17201a';
-  ctx.fillRect(W / 2 - 26, -mv, 52, H + 2 * mv);
-  ctx.fillStyle = 'rgba(255,255,255,0.035)';
-  for (let y = -mv; y < H + mv; y += 3) ctx.fillRect(W / 2 - 26, y, 52, 1);
-}
-
 // Изнанка: стёганая атласная подкладка и вшитая этикетка.
 function drawLining(ext) {
-  const { cw, ch, scale, m, mv } = ext;
-  const c = document.createElement('canvas');
-  c.width = cw;
-  c.height = ch;
-  const ctx = c.getContext('2d');
-  ctx.scale(scale, scale);
-  ctx.translate(m, mv);
-  const g = ctx.createLinearGradient(0, -mv, 0, H + mv);
+  const r = surface(ext, Math.min(ext.scale, 1));
+  const { ctx } = r;
+  const g = ctx.createLinearGradient(0, r.y0, 0, r.y0 + r.h);
   g.addColorStop(0, '#e4632a');
-  g.addColorStop(1, '#cf4f1c');
+  g.addColorStop(1, '#c94a19');
   ctx.fillStyle = g;
-  ctx.fillRect(-m, -mv, W + 2 * m, H + 2 * mv);
+  ctx.fillRect(r.x0, r.y0, r.w, r.h);
   const step = 46;
   ctx.lineWidth = 1.4;
-  for (let k = -H - 2 * m; k < W + H + 2 * m; k += step) {
-    [[1, 'rgba(110,30,0,0.28)', 0], [1, 'rgba(255,205,170,0.22)', 1.2]].forEach(([, col, off]) => {
+  ctx.setLineDash([5, 3]);
+  for (let k = r.x0 - r.h; k < r.x0 + r.w + r.h; k += step) {
+    [['rgba(110,30,0,0.28)', 0], ['rgba(255,205,170,0.22)', 1.2]].forEach(([col, off]) => {
       ctx.strokeStyle = col;
-      ctx.setLineDash([5, 3]);
       ctx.beginPath();
-      ctx.moveTo(k - mv + off, -mv);
-      ctx.lineTo(k + H + mv + off, H + mv);
-      ctx.moveTo(k + H + mv + off, -mv);
-      ctx.lineTo(k - mv + off, H + mv);
+      ctx.moveTo(k + off, r.y0);
+      ctx.lineTo(k + r.h + off, r.y0 + r.h);
+      ctx.moveTo(k + r.h + off, r.y0);
+      ctx.lineTo(k + off, r.y0 + r.h);
       ctx.stroke();
     });
   }
   ctx.setLineDash([]);
-  drawTape(ctx, ext);
+  drawTape(ctx, r);
   // этикетка (зеркально, чтобы читалась на отвороте)
-  const lx = W / 2 - 98, ly = 70;
   ctx.save();
-  ctx.translate(lx + 30, ly + 34);
+  ctx.translate(W / 2 - 68, 104);
   ctx.scale(-1, 1);
   ctx.fillStyle = '#f2ede3';
   ctx.fillRect(-30, -34, 60, 68);
@@ -304,7 +325,7 @@ function drawLining(ext) {
   ctx.fillText('36% ПОЛИЭСТЕР', 0, 17);
   ctx.fillText('M · 48', 0, 26);
   ctx.restore();
-  const tex = new THREE.CanvasTexture(c);
+  const tex = new THREE.CanvasTexture(r.c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -347,17 +368,35 @@ function tabLabelTexture() {
   return tex;
 }
 
+// Звено молнии: «головка» смотрит к соседней половине, хвост уходит в тесьму.
+function toothGeometry() {
+  const s = new THREE.Shape();
+  s.moveTo(4.8, -2.1);
+  s.lineTo(-2.2, -2.7);
+  s.quadraticCurveTo(-5.6, -2.7, -5.6, 0);
+  s.quadraticCurveTo(-5.6, 2.7, -2.2, 2.7);
+  s.lineTo(4.8, 2.1);
+  s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: 2.2, bevelEnabled: true, bevelThickness: 0.8, bevelSize: 0.6, bevelSegments: 2, curveSegments: 6 });
+  g.translate(0, 0, -1.1);
+  return g;
+}
+
 // --- деформация ткани -------------------------------------------------
 // t — расстояние от линии молнии вглубь полотнища, y — высота (вверх),
 // sigma — сторона (−1 левая, +1 правая).
-const D = { ys: 0, O: 0, Cmax: 0, Lo: 1, Lf: 1, Lc: 1 };
+const D = { ys: 0, O: 0, Cmax: 0, Lo: 1, Lf: 1, Lc: 1, fold: 0 };
 function deform(sigma, t, y, out) {
   const d = y - D.ys;
+  const tp = Math.max(0, t);
   let tt = t, z = 0, lat = 0;
   if (d > 0) {
-    const o = D.O * Math.tanh(d / D.Lo);
-    lat = o * Math.exp(-Math.max(0, t) / D.Lf);
+    // раскрытие почти линейно растёт от бегунка — получается настоящая «V»
+    const o = D.O * (1 - Math.exp(-d / D.Lo));
+    lat = o * Math.exp(-tp / D.Lf);
     const tc = D.Cmax * smoothstep(0, D.Lc, d);
+    // на отвороте ткань гладкая, складки начинаются за линией сгиба
+    const flat = smoothstep(tc, tc + 70, tp);
     if (t < tc) {
       // край заворачивается вокруг цилиндра и ложится изнанкой наружу
       const u = tc - t, th = u / R_CURL;
@@ -370,32 +409,36 @@ function deform(sigma, t, y, out) {
       }
     }
     const k = D.O > 0 ? o / D.O : 0;
-    // ткань приподнимается у разреза и собирается в косые складки от бегунка
-    z += 0.16 * o * Math.exp(-Math.max(0, t) / 150);
-    z += 5 * k * Math.sin((t * 0.9 + d * 0.5) / 21) * Math.exp(-Math.max(0, t) / 240) * Math.exp(-d / (H * 0.9));
-    z += 3 * k * Math.sin((t * 0.35 - d * 0.22) / 17) * Math.exp(-Math.max(0, t) / 400);
-  } else if (d > -60) {
-    // под бегунком ткань слегка натянута
-    z += 1.5 * (1 + d / 60) * Math.exp(-Math.max(0, t) / 60);
+    // ткань у разреза приподнимается
+    z += 0.14 * o * Math.exp(-tp / 160);
+    // косые складки: гребни шума, вытянутые вдоль натяжения
+    const n = vnoise(tp / 75 + d / 150 + sigma * 13.7, d / 48 - tp / 170);
+    z += D.fold * 11 * k * flat * (1 - Math.abs(2 * n - 1)) * Math.exp(-tp / 320);
+    // мелкие «лучики» натяжения от бегунка
+    const rr = Math.hypot(tp, d);
+    z += 2.6 * flat * Math.sin(Math.atan2(d, tp + 6) * 16) * Math.exp(-rr / 80) * smoothstep(0, 30, d);
+  } else if (d > -70) {
+    // под бегунком ткань натянута и чуть вздута над зубцами
+    z += 1.6 * (1 + d / 70) * Math.exp(-tp / 50);
   }
   out.set(sigma * (tt + lat), y, z);
   return out;
 }
 
 function buildHalf(sigma, ext) {
-  const { m, mv } = ext;
-  const NT = W < 760 ? 56 : 84, NY = W < 760 ? 120 : 170;
-  const Wh = W / 2 + m;
+  const NT = W < 760 ? 56 : 84, NY = W < 760 ? 220 : 320;
+  const Wh = W / 2 + ext.mg; // полотно шире текстуры: края никогда не попадают в кадр
+  const yTop = H / 2 + ext.mt, yBot = -H / 2 - ext.mb;
   const ts = [], ys = [];
   for (let i = 0; i <= NT; i++) ts.push(Wh * Math.pow(i / NT, 1.75));
-  for (let j = 0; j <= NY; j++) ys.push(H / 2 + mv - ((H + 2 * mv) * j) / NY);
+  for (let j = 0; j <= NY; j++) ys.push(yTop - ((yTop - yBot) * j) / NY);
   const count = (NT + 1) * (NY + 1);
   const pos = new Float32Array(count * 3), uv = new Float32Array(count * 2);
   for (let j = 0; j <= NY; j++) {
     for (let i = 0; i <= NT; i++) {
       const k = j * (NT + 1) + i;
       pos.set([sigma * ts[i], ys[j], 0], k * 3);
-      uv.set([(sigma * ts[i] + W / 2 + m) / (W + 2 * m), (ys[j] + H / 2 + mv) / (H + 2 * mv)], k * 2);
+      uv.set([(sigma * ts[i] + W / 2 + ext.m) / (W + 2 * ext.m), (ys[j] - yBot) / (yTop - yBot)], k * 2);
     }
   }
   const idx = [];
@@ -410,21 +453,23 @@ function buildHalf(sigma, ext) {
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   geo.setIndex(idx);
+
+  const holder = new THREE.Group(); // половина вместе с зубцами — уезжает за край
   const front = new THREE.Mesh(geo, C.frontMat);
   const back = new THREE.Mesh(geo, C.backMat);
   [front, back].forEach((mesh) => {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;
-    C.group.add(mesh);
+    holder.add(mesh);
   });
-
-  const nTeeth = Math.ceil((H + 2 * mv) / TOOTH) + 2;
+  const nTeeth = Math.ceil((yTop - yBot) / TOOTH) + 2;
   const teeth = new THREE.InstancedMesh(C.toothGeo, C.metalMat, nTeeth);
   teeth.castShadow = true;
   teeth.frustumCulled = false;
-  C.group.add(teeth);
-  return { sigma, geo, ts, ys, NT, NY, teeth, nTeeth, top: H / 2 + mv };
+  holder.add(teeth);
+  C.group.add(holder);
+  return { sigma, geo, ts, ys, NT, NY, teeth, nTeeth, top: yTop, holder };
 }
 
 const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3();
@@ -446,7 +491,7 @@ function updateHalf(h) {
   h.geo.computeVertexNormals();
 
   // зубцы стоят на кромке тесьмы и повторяют её изгиб
-  const tb = -1.5;
+  const tb = 2.6;
   for (let n = 0; n < h.nTeeth; n++) {
     const y = h.top - n * TOOTH - (h.sigma > 0 ? TOOTH / 2 : 0);
     deform(h.sigma, tb, y, vA);
@@ -459,14 +504,14 @@ function updateHalf(h) {
     nrm.normalize();
     along.crossVectors(nrm, across).normalize();
     mtx.makeBasis(across, along, nrm);
-    vA.addScaledVector(nrm, 2.4);
+    vA.addScaledVector(nrm, 2.2);
     mtx.setPosition(vA);
     h.teeth.setMatrixAt(n, mtx);
   }
   h.teeth.instanceMatrix.needsUpdate = true;
 }
 
-function buildSlider() {
+function buildSlider(parent) {
   const g = new THREE.Group();
   const body = new THREE.Shape();
   body.moveTo(-17, 6);
@@ -507,14 +552,14 @@ function buildSlider() {
   tab.add(tabMesh, label);
   tab.position.set(0, -16, 15);
   g.add(tab);
-  C.group.add(g);
+  parent.add(g);
   C.slider = g;
   C.tab = tab;
 }
 
 async function buildCloth() {
   if (!renderer) return;
-  if (C.group) {
+  if (C.scene) {
     C.scene.traverse((o) => {
       o.geometry?.dispose?.();
       if (o.material) [].concat(o.material).forEach((mm) => { mm.map?.dispose?.(); mm.dispose?.(); });
@@ -535,32 +580,33 @@ async function buildCloth() {
   pmrem.dispose();
 
   const fov = 30;
-  const camera = new THREE.PerspectiveCamera(fov, W / H, 10, 30000);
-  camera.position.set(0, 0, H / 2 / Math.tan((fov * Math.PI) / 360));
+  const camera = new THREE.PerspectiveCamera(fov, W / H, 10, 40000);
+  C.D = H / 2 / Math.tan((fov * DEG) / 2);
+  camera.position.set(0, 0, C.D);
   C.camera = camera;
 
   const sun = new THREE.DirectionalLight(0xfff6ea, 1.9);
   sun.position.set(-0.45 * W, 0.75 * H, 1500);
   sun.castShadow = true;
   sun.shadow.mapSize.set(W < 760 ? 1024 : 2048, W < 760 ? 1024 : 2048);
-  Object.assign(sun.shadow.camera, { left: -W, right: W, top: H, bottom: -H, near: 10, far: 5000 });
+  Object.assign(sun.shadow.camera, { left: -W, right: W, top: H, bottom: -H * 1.6, near: 10, far: 6000 });
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 1.2;
   sun.shadow.radius = 6;
   scene.add(sun, new THREE.HemisphereLight(0xffffff, 0x3a4a40, 0.55));
 
   // ловец теней: прозрачная плоскость позади ткани, тень ложится на витрину
-  const catcher = new THREE.Mesh(new THREE.PlaneGeometry(W * 1.6, H * 1.6), new THREE.ShadowMaterial({ opacity: 0.38, depthWrite: false }));
-  catcher.position.z = -60;
+  const catcher = new THREE.Mesh(new THREE.PlaneGeometry(W * 2.2, H * 2.2), new THREE.ShadowMaterial({ opacity: 0.36, depthWrite: false }));
+  catcher.position.z = -90;
   catcher.receiveShadow = true;
   scene.add(catcher);
   C.catcher = catcher;
 
-  const m = Math.round(W * 0.3), mv = 200;
-  const scale = Math.min(dpr, 4096 / (W + 2 * m), 4096 / (H + 2 * mv));
-  const ext = { m, mv, scale, cw: Math.round((W + 2 * m) * scale), ch: Math.round((H + 2 * mv) * scale) };
+  // ткань длиннее экрана: молния уходит вниз и вглубь далеко за его край
+  const ext = { m: Math.round(W * 0.3), mg: Math.round(Math.max(W, H) * 1.1), mt: 200, mb: Math.round(H * 2.4) };
+  ext.scale = Math.min(dpr, 4096 / (W + 2 * ext.m), 4096 / (H + ext.mt + ext.mb));
   const twill = twillTexture();
-  twill.repeat.set((W + 2 * m) / 40, (H + 2 * mv) / 40);
+  twill.repeat.set((W + 2 * ext.m) / 40, (H + ext.mt + ext.mb) / 40);
   C.frontMat = new THREE.MeshPhysicalMaterial({
     map: drawFront(ext),
     bumpMap: twill,
@@ -574,7 +620,7 @@ async function buildCloth() {
     side: THREE.FrontSide,
   });
   C.backMat = new THREE.MeshPhysicalMaterial({
-    map: drawLining({ ...ext, scale: Math.min(scale, 1.25), cw: Math.round((W + 2 * m) * Math.min(scale, 1.25)), ch: Math.round((H + 2 * mv) * Math.min(scale, 1.25)) }),
+    map: drawLining(ext),
     roughness: 0.38,
     metalness: 0,
     sheen: 0.8,
@@ -585,38 +631,53 @@ async function buildCloth() {
     envMapIntensity: 0.8,
     side: THREE.BackSide,
   });
-  C.metalMat = new THREE.MeshStandardMaterial({ color: '#9d9b94', metalness: 1, roughness: 0.34, envMapIntensity: 0.85 });
-  C.toothGeo = new THREE.BoxGeometry(9.5, 5.6, 3.4);
+  C.metalMat = new THREE.MeshStandardMaterial({ color: '#a19f98', metalness: 1, roughness: 0.3, envMapIntensity: 0.9 });
+  C.toothGeo = toothGeometry();
 
   C.group = new THREE.Group();
   scene.add(C.group);
+  C.pivotY = H / 2 + ext.mt; // ткань наклоняется вокруг верхнего края
   C.halves = [buildHalf(-1, ext), buildHalf(1, ext)];
-  buildSlider();
+  C.zipTop = H / 2 - 30;
+  C.zipEnd = -H / 2 - ext.mb - 80; // бегунок проходит всю молнию до конца
+  buildSlider(C.halves[0].holder); // бегунок остаётся на левой половине
   C.tabState = { a: 0, va: 0, b: 0, vb: 0, prevYs: null, time: 0 };
   C.lastP = -1;
   sticky.classList.add('ready');
 }
 
 function updateCloth(p, dt) {
-  if (!C.group) return;
-  const u = easeInOut(clamp((p - 0.02) / 0.46));
-  const ko = easeInOut(clamp((p - 0.42) / 0.22));
-  const k = easeInOut(clamp((p - 0.5) / 0.24));
-  const ys = (H / 2 - 30) + (-H - 170) * u;
-  const gain = smoothstep(0, 0.08, u);
+  if (!C.group) return false;
+  const u = easeInOut(phase(T.unzip, p));
+  const tilt = 52 * DEG * easeInOut(phase(T.tilt, p));
+  const wide = easeInOut(phase(T.widen, p));
+  const ex = phase(T.exit, p);
+  // бегунок идёт быстрее там, где молния уходит вдаль, — равномерно для глаза
+  const ys = C.zipTop + (C.zipEnd - C.zipTop) * Math.pow(u, 1.35);
+  const gain = smoothstep(0, 0.05, u);
 
   if (Math.abs(p - C.lastP) > 1e-5) {
     C.lastP = p;
     D.ys = ys;
-    D.O = W * 0.15 * gain * (1 + 2.4 * ko);
-    D.Cmax = gain * (64 + 110 * ko);
-    D.Lo = H * 0.45;
-    D.Lf = W * 0.5;
-    D.Lc = H * 0.55;
+    D.O = W * 0.17 * gain * (1 + 1.6 * wide);
+    D.Cmax = gain * (52 + 70 * wide);
+    D.Lo = H * 0.95;
+    D.Lf = W * 0.55;
+    D.Lc = H * 0.5;
+    D.fold = gain;
     C.halves.forEach(updateHalf);
-    C.group.position.set(0, k * H * 0.05, -k * 2600);
-    C.group.rotation.x = -k * 0.3;
-    C.catcher.material.opacity = 0.38 * (1 - k);
+
+    // плоскость ткани наклоняется вокруг верхнего края: низ уходит вглубь
+    const py = C.pivotY;
+    C.group.rotation.x = tilt;
+    C.group.position.set(0, py - py * Math.cos(tilt), -py * Math.sin(tilt));
+    // расстёгнутые половины расходятся и уезжают за края экрана
+    const out = easeIn(ex) * W * 3.4;
+    C.halves.forEach((h) => {
+      h.holder.position.x = h.sigma * out;
+      h.holder.rotation.y = h.sigma * 0.45 * easeInOut(ex);
+    });
+    C.catcher.material.opacity = 0.36 * (1 - smoothstep(0, 0.5, ex)) * (1 - tilt / (60 * DEG));
   }
 
   // бегунок и язычок-маятник
@@ -625,7 +686,7 @@ function updateCloth(p, dt) {
   const vy = s.prevYs === null || dt <= 0 ? 0 : (ys - s.prevYs) / dt;
   s.prevYs = ys;
   s.time += dt;
-  const lift = clamp(-vy * 0.0011, 0, 0.95) + 0.04;
+  const lift = clamp(-vy * 0.0009, 0, 0.95) + 0.04;
   const swingT = Math.sin(s.time * 2.7) * 0.06 * clamp(Math.abs(vy) / 400);
   const h = Math.min(dt, 1 / 30);
   s.va += (-55 * (s.a - lift) - 7 * s.va) * h;
@@ -656,16 +717,15 @@ function loop(now) {
   if (Math.abs(t - shown) < 0.0003) shown = t;
   const p = shown;
 
-  const fade = clamp((p - 0.66) / 0.1);
-  canvas.style.opacity = (1 - fade).toFixed(3);
-  canvas.style.visibility = fade >= 1 ? 'hidden' : 'visible';
+  // ткань ушла за края — холст больше не нужен
+  const gone = p >= T.exit[1];
+  canvas.style.visibility = gone ? 'hidden' : 'visible';
   hint.style.opacity = (1 - clamp(p * 25)).toFixed(3);
-  header.classList.toggle('on-paper', p > 0.58);
+  header.classList.toggle('on-paper', p > 0.6);
 
   if (p !== lastRendered || settling) {
     renderCards(p);
-    if (fade < 1) settling = updateCloth(p, dt) || p !== lastRendered;
-    else settling = false;
+    settling = !gone && (updateCloth(p, dt) || p !== lastRendered);
     lastRendered = p;
   }
   requestAnimationFrame(loop);
@@ -680,10 +740,10 @@ let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(async () => {
-    const oldW = W;
+    const oldW = W, oldH = H;
     measure();
     layoutCards();
-    if (Math.abs(W - oldW) > 1 || C.camera?.aspect !== W / H) {
+    if (Math.abs(W - oldW) > 1 || Math.abs(H - oldH) > 80) {
       await buildCloth();
       settling = true;
       lastRendered = -1;
@@ -699,11 +759,7 @@ window.addEventListener('resize', () => {
     Promise.all(['100px "Dela Gothic One"', '20px Manrope', '13px "JetBrains Mono"', '500 13px "JetBrains Mono"'].map((f) => document.fonts.load(f))),
     new Promise((r) => setTimeout(r, 2500)),
   ]).catch(() => {});
-  // SVG-текст на рисунках вещей перерисовываем уже с загруженным шрифтом
-  cards.forEach((c, i) => {
-    const svg = c.el.querySelector('svg');
-    svg.innerHTML = DRAW[PRODUCTS[i].type](PRODUCTS[i].c, PRODUCTS[i].a, i);
-  });
+  layoutCards();
   await buildCloth();
   shown = target();
   requestAnimationFrame(loop);
