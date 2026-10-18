@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { DRAW, PRODUCTS } from './products.js';
 
 const $ = (s) => document.querySelector(s);
@@ -207,10 +206,15 @@ function surface(ext, scale) {
 }
 
 function drawTape(ctx, r) {
-  ctx.fillStyle = '#17201a';
+  ctx.fillStyle = '#1a231d';
   ctx.fillRect(W / 2 - 26, r.y0, 52, r.h);
-  ctx.fillStyle = 'rgba(255,255,255,0.035)';
-  for (let y = r.y0; y < r.y0 + r.h; y += 3) ctx.fillRect(W / 2 - 26, y, 52, 1);
+  for (let y = r.y0; y < r.y0 + r.h; y += 2) {
+    ctx.fillStyle = `rgba(255,255,255,${(0.02 + Math.random() * 0.03).toFixed(3)})`;
+    ctx.fillRect(W / 2 - 26, y, 52, 1);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(W / 2 - 26, r.y0, 1.5, r.h);
+  ctx.fillRect(W / 2 + 24.5, r.y0, 1.5, r.h);
 }
 
 // Лицевая сторона: ткань, печать, тесьма молнии и строчка.
@@ -219,7 +223,7 @@ function drawFront(ext) {
   const { ctx } = r;
   const P = W < 760 ? 16 : 28;
 
-  ctx.fillStyle = '#26332b';
+  ctx.fillStyle = '#304036'; // светлее итога: плетение затемняет
   ctx.fillRect(r.x0, r.y0, r.w, r.h);
   for (let i = 0; i < 40; i++) {
     const x = r.x0 + Math.random() * r.w, y = r.y0 + Math.random() * r.h, rad = 120 + Math.random() * 380;
@@ -259,11 +263,36 @@ function drawFront(ext) {
       ctx.fillText(txt, W - P, H - P - 92 + i * 20);
     });
   }
-  // печать чуть «впитывается» в ткань
+  drawSeams(ctx, P);
+  // плетение поверх печати: краска лежит на нитях, рельеф виден и сквозь неё
+  const wv = weaveTiles();
+  const pat = ctx.createPattern(wv.color, 'repeat');
+  pat.setTransform(new DOMMatrix().translate(-ext.m, -ext.mt).scale(WEAVE_TILE / wv.S));
   ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = pat;
+  ctx.fillRect(r.x0, r.y0, r.w, r.h);
   ctx.fillStyle = ctx.createPattern(noiseCanvas(128, 0.12), 'repeat');
   ctx.fillRect(r.x0, r.y0, r.w, r.h);
   ctx.globalCompositeOperation = 'source-over';
+  // утолщения нитей утка, ворсинки и катышки
+  for (let i = 0; i < (r.w * r.h) / 900; i++) {
+    ctx.fillStyle = `rgba(255,255,255,${(0.025 + Math.random() * 0.04).toFixed(3)})`;
+    ctx.fillRect(r.x0 + Math.random() * r.w, r.y0 + Math.random() * r.h, 8 + Math.random() * 50, 1 + Math.random() * 0.8);
+  }
+  for (let i = 0; i < (r.w * r.h) / 1400; i++) {
+    ctx.fillStyle = Math.random() < 0.7 ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.12)';
+    ctx.beginPath();
+    ctx.arc(r.x0 + Math.random() * r.w, r.y0 + Math.random() * r.h, 0.5 + Math.random() * 1.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // ткань у молнии чуть вытерта
+  [-1, 1].forEach((sd) => {
+    const g = ctx.createLinearGradient(W / 2 + sd * 26, 0, W / 2 + sd * 90, 0);
+    g.addColorStop(0, 'rgba(255,255,255,0.05)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(Math.min(W / 2 + sd * 26, W / 2 + sd * 90), r.y0, 64, r.h);
+  });
 
   drawTape(ctx, r);
   ctx.strokeStyle = 'rgba(236,230,220,0.42)';
@@ -281,6 +310,57 @@ function drawFront(ext) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
+}
+
+// Кокетка с двойной отстрочкой и два прорезных кармана.
+function drawSeams(ctx, P) {
+  const stitch = (x1, y1, x2, y2) => {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  };
+  const ys = Math.round(Math.max(150, H * 0.19));
+  const shade = ctx.createLinearGradient(0, ys - 14, 0, ys + 10);
+  shade.addColorStop(0, 'rgba(0,0,0,0)');
+  shade.addColorStop(0.55, 'rgba(0,0,0,0.18)');
+  shade.addColorStop(0.62, 'rgba(255,255,255,0.06)');
+  shade.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(-W, ys - 14, W * 3, 24);
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = 1.4;
+  stitch(-W, ys, W * 2, ys);
+  ctx.strokeStyle = 'rgba(236,230,220,0.36)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([5, 4]);
+  stitch(-W, ys - 6, W * 2, ys - 6);
+  stitch(-W, ys + 6, W * 2, ys + 6);
+  ctx.setLineDash([]);
+
+  const len = Math.min(160, H * 0.17), cy = H * 0.73;
+  [[W * 0.2, -0.26], [W * 0.8, 0.26]].forEach(([cx, ang]) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(ang);
+    // листочка кармана
+    ctx.fillStyle = 'rgba(255,255,255,0.035)';
+    ctx.fillRect(-9, -len / 2, 18, len);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(ang < 0 ? 8 : -10, -len / 2, 2, len); // прорезь
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-9, -len / 2, 18, len);
+    ctx.strokeStyle = 'rgba(236,230,220,0.34)';
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(-6, -len / 2 + 3, 12, len - 6);
+    ctx.setLineDash([]);
+    // закрепки
+    ctx.fillStyle = 'rgba(236,230,220,0.5)';
+    ctx.fillRect(-9, -len / 2 - 1, 18, 2.5);
+    ctx.fillRect(-9, len / 2 - 1.5, 18, 2.5);
+    ctx.restore();
+  });
 }
 
 // Изнанка: стёганая атласная подкладка и вшитая этикетка.
@@ -330,25 +410,124 @@ function drawLining(ext) {
   return tex;
 }
 
-function twillTexture() {
-  const s = 64;
+// --- плетение ткани -----------------------------------------------------
+// Саржа 2/1 на тайле 12×12 нитей: для каждой нити считаем высоту (рельеф),
+// из неё — карту нормалей, плюс карту цвета (основа темнее утка).
+const WEAVE = { cells: 12, px: 14, pitch: 5 }; // pitch — шаг нити на экране, px
+const WEAVE_TILE = WEAVE.cells * WEAVE.pitch; // размер тайла на экране, px
+let weaveCache = null;
+function weaveTiles() {
+  if (weaveCache) return weaveCache;
+  const { cells, px } = WEAVE;
+  const S = cells * px;
+  const hgt = new Float32Array(S * S), col = new Float32Array(S * S);
+  const rnd01 = () => Math.random();
+  const warpW = Array.from({ length: cells }, () => 0.82 + rnd01() * 0.3);
+  const weftW = Array.from({ length: cells }, () => 0.82 + rnd01() * 0.3);
+  const warpT = Array.from({ length: cells }, () => rnd01() * 0.1);
+  const weftT = Array.from({ length: cells }, () => rnd01() * 0.07);
+  const ph = Array.from({ length: cells * 2 }, () => rnd01() * Math.PI * 2);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const ci = Math.floor(x / px), cj = Math.floor(y / px);
+      const u = ((x % px) + 0.5) / px, v = ((y % px) + 0.5) / px;
+      const warpTop = (ci + cj) % 3 !== 0; // диагональ саржи
+      let h, c;
+      if (warpTop) {
+        const r = Math.abs(2 * u - 1) / warpW[ci];
+        h = (r < 1 ? Math.sqrt(1 - r * r) : 0) * (0.62 + 0.38 * Math.sin(Math.PI * v));
+        h += 0.06 * Math.sin(v * Math.PI * 4 + u * 3 + ph[ci]); // скрутка волокон
+        c = 0.82 + warpT[ci] - (r < 1 ? 0 : 0.1);
+      } else {
+        const r = Math.abs(2 * v - 1) / weftW[cj];
+        h = (r < 1 ? Math.sqrt(1 - r * r) : 0) * (0.62 + 0.38 * Math.sin(Math.PI * u));
+        h += 0.06 * Math.sin(u * Math.PI * 4 + v * 3 + ph[cells + cj]);
+        c = 0.95 + weftT[cj] - (r < 1 ? 0 : 0.1);
+      }
+      h += (Math.random() - 0.5) * 0.09; // ворс
+      hgt[y * S + x] = h;
+      col[y * S + x] = Math.min(1, c + (Math.random() - 0.5) * 0.05);
+    }
+  }
+  const nc = document.createElement('canvas'), cc = document.createElement('canvas');
+  nc.width = nc.height = cc.width = cc.height = S;
+  const nctx = nc.getContext('2d'), cctx = cc.getContext('2d');
+  const nImg = nctx.createImageData(S, S), cImg = cctx.createImageData(S, S);
+  const at = (x, y) => hgt[((y + S) % S) * S + ((x + S) % S)];
+  const k = 2.6;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const hx = at(x + 1, y) - at(x - 1, y), hy = at(x, y + 1) - at(x, y - 1);
+      let nx = -hx * k, ny = hy * k, nz = 1;
+      const l = Math.hypot(nx, ny, nz);
+      nx /= l; ny /= l; nz /= l;
+      const i = (y * S + x) * 4;
+      nImg.data.set([(nx * 0.5 + 0.5) * 255, (ny * 0.5 + 0.5) * 255, (nz * 0.5 + 0.5) * 255, 255], i);
+      const g = col[y * S + x] * 255;
+      cImg.data.set([g, g, g, 255], i);
+    }
+  }
+  nctx.putImageData(nImg, 0, 0);
+  cctx.putImageData(cImg, 0, 0);
+  weaveCache = { normal: nc, color: cc, S };
+  return weaveCache;
+}
+
+function weaveNormal(tilesX, tilesY) {
+  const tex = new THREE.CanvasTexture(weaveTiles().normal);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(tilesX, tilesY);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+// шлифованный металл: тонкие продольные риски для карты шероховатости
+function brushedTexture() {
+  const s = 256;
   const c = document.createElement('canvas');
   c.width = c.height = s;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#808080';
+  ctx.fillStyle = 'rgb(70,70,70)';
   ctx.fillRect(0, 0, s, s);
-  ctx.strokeStyle = '#b4b4b4';
-  ctx.lineWidth = 2.2;
-  for (let k = -s; k < 2 * s; k += 6) {
+  for (let i = 0; i < 900; i++) {
+    const g = 40 + Math.random() * 110;
+    ctx.fillStyle = `rgba(${g},${g},${g},0.5)`;
+    ctx.fillRect(Math.random() * s, Math.random() * s, 20 + Math.random() * 140, 0.6 + Math.random() * 0.8);
+  }
+  // редкие царапины
+  ctx.strokeStyle = 'rgba(160,160,160,0.6)';
+  for (let i = 0; i < 14; i++) {
+    ctx.lineWidth = 0.5 + Math.random();
     ctx.beginPath();
-    ctx.moveTo(k, 0);
-    ctx.lineTo(k + s, s);
+    const x = Math.random() * s, y = Math.random() * s;
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (Math.random() - 0.5) * 120, y + (Math.random() - 0.5) * 60);
     ctx.stroke();
   }
-  ctx.drawImage(noiseCanvas(s, 0.25), 0, 0);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(0.035, 0.035);
   return tex;
+}
+
+// Студийное окружение: тёмная комната и несколько софтбоксов —
+// металл получает чёткие блики вместо мягкого «пластилинового» отражения.
+function studioEnvironment() {
+  const s = new THREE.Scene();
+  s.add(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.32, 0.32, 0.31), side: THREE.BackSide })));
+  const panel = (w, h, x, y, z, power) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(power, power, power * 0.96), side: THREE.DoubleSide }));
+    m.position.set(x, y, z);
+    m.lookAt(0, 0, 0);
+    s.add(m);
+  };
+  panel(5, 2, -2.4, 3.2, 3.4, 9); // основной софтбокс сверху слева
+  panel(1, 7, 4.6, 0.4, 2, 5); // узкий стрип справа
+  panel(1, 7, -4.6, -0.6, 1.5, 2.5); // стрип слева
+  panel(8, 1.2, 0, -4.6, 2.4, 2.2); // отражение от пола
+  panel(4, 3, 0.5, 1.5, 4.8, 3.5); // фронтальный свет со стороны зрителя
+  panel(3, 3, 0.5, 1.5, -4.6, 2); // контровой
+  return s;
 }
 
 function tabLabelTexture() {
@@ -385,35 +564,44 @@ function toothGeometry() {
 // --- деформация ткани -------------------------------------------------
 // t — расстояние от линии молнии вглубь полотнища, y — высота (вверх),
 // sigma — сторона (−1 левая, +1 правая).
-const D = { ys: 0, O: 0, Cmax: 0, Lo: 1, Lf: 1, Lc: 1, fold: 0 };
+const D = { ys: 0, O: 0, Cmax: 0, Lo: 1, Lf: 1, Lc: 1, fold: 0, drape: 0 };
 function deform(sigma, t, y, out) {
   const d = y - D.ys;
   const tp = Math.max(0, t);
+  const sid = sigma * 31.7;
   let tt = t, z = 0, lat = 0;
+  // ткань не лежит идеально ровно: мягкие бугры по всему полотну
+  // (шум берётся по x со знаком, поэтому половины совпадают на линии молнии)
+  z += (vnoise((sigma * tp) / 230 + 50, y / 210) - 0.5) * (5 + 10 * D.drape);
   if (d > 0) {
-    // раскрытие почти линейно растёт от бегунка — получается настоящая «V»
-    const o = D.O * (1 - Math.exp(-d / D.Lo));
+    const wob = vnoise(y / 420 + sid, 3.3) - 0.5; // неровная кромка разреза
+    const o = D.O * (1 - Math.exp(-d / D.Lo)) * (1 + 0.16 * wob);
     lat = o * Math.exp(-tp / D.Lf);
-    const tc = D.Cmax * smoothstep(0, D.Lc, d);
-    // на отвороте ткань гладкая, складки начинаются за линией сгиба
+    // ширина и радиус отворота «гуляют» по длине
+    const tc = D.Cmax * smoothstep(0, D.Lc, d) * (0.8 + 0.4 * vnoise(y / 360 + sid, 7.1));
+    const R = R_CURL * (0.75 + 0.5 * vnoise(y / 220 + sid, 1.7));
     const flat = smoothstep(tc, tc + 70, tp);
     if (t < tc) {
-      // край заворачивается вокруг цилиндра и ложится изнанкой наружу
-      const u = tc - t, th = u / R_CURL;
+      const u = tc - t, th = u / R;
       if (th <= Math.PI) {
-        tt = tc - R_CURL * Math.sin(th);
-        z = R_CURL * (1 - Math.cos(th));
+        tt = tc - R * Math.sin(th);
+        z += R * (1 - Math.cos(th));
       } else {
-        tt = tc + (u - Math.PI * R_CURL);
-        z = 2 * R_CURL;
+        tt = tc + (u - Math.PI * R);
+        z += 2 * R;
       }
+      // валик отворота мнётся: мелкие заломы вдоль него
+      const buck = vnoise(y / 46 + sid, u / 50) - 0.5;
+      const bw = smoothstep(0, 18, u);
+      z += buck * 4.5 * bw;
+      tt += buck * 2.5 * bw;
     }
     const k = D.O > 0 ? o / D.O : 0;
     // ткань у разреза приподнимается
     z += 0.14 * o * Math.exp(-tp / 160);
     // косые складки: гребни шума, вытянутые вдоль натяжения
-    const n = vnoise(tp / 75 + d / 150 + sigma * 13.7, d / 48 - tp / 170);
-    z += D.fold * 11 * k * flat * (1 - Math.abs(2 * n - 1)) * Math.exp(-tp / 320);
+    const n = vnoise(tp / 75 + d / 150 + sid, d / 48 - tp / 170);
+    z += D.fold * 12 * k * flat * (1 - Math.abs(2 * n - 1)) * Math.exp(-tp / 320);
     // мелкие «лучики» натяжения от бегунка
     const rr = Math.hypot(tp, d);
     z += 2.6 * flat * Math.sin(Math.atan2(d, tp + 6) * 16) * Math.exp(-rr / 80) * smoothstep(0, 30, d);
@@ -421,6 +609,8 @@ function deform(sigma, t, y, out) {
     // под бегунком ткань натянута и чуть вздута над зубцами
     z += 1.6 * (1 + d / 70) * Math.exp(-tp / 50);
   }
+  // строчка вдоль тесьмы чуть стягивает ткань
+  z -= 0.9 * Math.exp(-Math.abs(tp - 34) / 4);
   out.set(sigma * (tt + lat), y, z);
   return out;
 }
@@ -511,50 +701,122 @@ function updateHalf(h) {
   h.teeth.instanceMatrix.needsUpdate = true;
 }
 
+// Бегунок молнии: литой корпус с клином-разделителем, приподнятая верхняя
+// пластина, мостик, кольцо и язычок с углублённой панелью. Фаски маленькие —
+// грани остаются чёткими.
+function crisp(shape, depth, bevel = 0.5) {
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 18 });
+}
 function buildSlider(parent) {
   const g = new THREE.Group();
-  const body = new THREE.Shape();
-  body.moveTo(-17, 6);
-  body.lineTo(17, 6);
-  body.lineTo(12, -44);
-  body.quadraticCurveTo(0, -51, -12, -44);
-  body.closePath();
-  const bodyGeo = new THREE.ExtrudeGeometry(body, { depth: 7, bevelEnabled: true, bevelThickness: 2.2, bevelSize: 2.2, bevelSegments: 4, curveSegments: 12 });
-  const bodyMesh = new THREE.Mesh(bodyGeo, C.metalMat);
-  bodyMesh.position.z = 2;
-  bodyMesh.castShadow = true;
-  g.add(bodyMesh);
-  const ridge = new THREE.Mesh(new THREE.BoxGeometry(6, 30, 3), C.metalMat);
-  ridge.position.set(0, -14, 11.5);
-  ridge.castShadow = true;
-  g.add(ridge);
+  const M = C.metalMat;
+  const add = (geo, z, mat = M) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.z = z;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    g.add(mesh);
+    return mesh;
+  };
 
-  const tabShape = new THREE.Shape();
-  const w = 8, L = 66;
-  tabShape.moveTo(-w + 3, 0);
-  tabShape.lineTo(w - 3, 0);
-  tabShape.quadraticCurveTo(w, 0, w, -3);
-  tabShape.lineTo(w + 1.5, -L + 6);
-  tabShape.quadraticCurveTo(w + 1.5, -L, w - 4, -L);
-  tabShape.lineTo(-w + 4, -L);
-  tabShape.quadraticCurveTo(-w - 1.5, -L, -w - 1.5, -L + 6);
-  tabShape.lineTo(-w, -3);
-  tabShape.quadraticCurveTo(-w, 0, -w + 3, 0);
+  const body = new THREE.Shape();
+  body.moveTo(-18, 8);
+  body.lineTo(-5.5, 8);
+  body.lineTo(0, 1.5); // вырез под клин-разделитель
+  body.lineTo(5.5, 8);
+  body.lineTo(18, 8);
+  body.lineTo(18, 2);
+  body.quadraticCurveTo(17.5, -7, 12.5, -13);
+  body.lineTo(9.5, -44);
+  body.quadraticCurveTo(0, -50, -9.5, -44);
+  body.lineTo(-12.5, -13);
+  body.quadraticCurveTo(-17.5, -7, -18, 2);
+  body.closePath();
+  add(crisp(body, 7.5, 0.6), 1.1);
+  const top = crisp(body, 1.2, 0.4);
+  top.scale(0.84, 0.9, 1);
+  top.translate(0, -1.5, 0);
+  add(top, 9.6);
+  // клин-разделитель между зубцами
+  const wedge = new THREE.Shape();
+  wedge.moveTo(-4, 9);
+  wedge.lineTo(4, 9);
+  wedge.lineTo(0, 1);
+  wedge.closePath();
+  add(crisp(wedge, 6, 0.4), 1.2);
+
+  // мостик: арка вдоль корпуса, под ней — отверстие для кольца
+  const arch = new THREE.Shape();
+  arch.moveTo(-11, 0);
+  arch.lineTo(11, 0);
+  arch.lineTo(11, 3);
+  arch.quadraticCurveTo(11, 9.5, 5, 9.8);
+  arch.lineTo(-5, 9.8);
+  arch.quadraticCurveTo(-11, 9.5, -11, 3);
+  arch.closePath();
   const hole = new THREE.Path();
-  hole.absarc(0, -7, 3.2, 0, Math.PI * 2, true);
-  tabShape.holes.push(hole);
-  const tabGeo = new THREE.ExtrudeGeometry(tabShape, { depth: 2.4, bevelEnabled: true, bevelThickness: 1, bevelSize: 1, bevelSegments: 3, curveSegments: 10 });
-  const tabMesh = new THREE.Mesh(tabGeo, C.metalMat);
-  tabMesh.castShadow = true;
-  const label = new THREE.Mesh(new THREE.PlaneGeometry(10, 40), new THREE.MeshBasicMaterial({ map: tabLabelTexture(), transparent: true, depthWrite: false }));
-  label.position.set(0, -38, 3.5);
+  hole.moveTo(-7, 0);
+  hole.lineTo(-7, 2.6);
+  hole.quadraticCurveTo(-7, 6.4, -3, 6.6);
+  hole.lineTo(3, 6.6);
+  hole.quadraticCurveTo(7, 6.4, 7, 2.6);
+  hole.lineTo(7, 0);
+  hole.closePath();
+  arch.holes.push(hole);
+  const archGeo = crisp(arch, 7, 0.45);
+  archGeo.translate(0, 0, -3.5);
+  // профиль арки: x → вдоль корпуса (y), y → вверх (z), толщина → поперёк (x)
+  archGeo.applyMatrix4(new THREE.Matrix4().set(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1));
+  archGeo.translate(0, -17, 0);
+  add(archGeo, 11);
+
+  // язычок на кольце; ось качания — перекладина мостика
   const tab = new THREE.Group();
-  tab.add(tabMesh, label);
-  tab.position.set(0, -16, 15);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(4.3, 1.15, 14, 36), M);
+  ring.rotation.y = Math.PI / 2;
+  ring.castShadow = true;
+  tab.add(ring);
+  const plate = new THREE.Shape();
+  const w = 8, L = 62;
+  plate.moveTo(-w + 3, 0);
+  plate.lineTo(w - 3, 0);
+  plate.quadraticCurveTo(w, 0, w, -3);
+  plate.lineTo(w + 1.8, -L + 7);
+  plate.quadraticCurveTo(w + 1.8, -L, w - 4, -L);
+  plate.lineTo(-w + 4, -L);
+  plate.quadraticCurveTo(-w - 1.8, -L, -w - 1.8, -L + 7);
+  plate.lineTo(-w, -3);
+  plate.quadraticCurveTo(-w, 0, -w + 3, 0);
+  const slot = new THREE.Path();
+  slot.absellipse(0, -5.5, 4.2, 2.6, 0, Math.PI * 2, true);
+  plate.holes.push(slot);
+  const plateGeo = crisp(plate, 2.2, 0.45);
+  plateGeo.translate(0, -0.2, -1.1);
+  const plateMesh = new THREE.Mesh(plateGeo, M);
+  plateMesh.castShadow = true;
+  tab.add(plateMesh);
+  // углублённая панель с гравировкой
+  const panel = new THREE.Shape();
+  panel.moveTo(-5, -14);
+  panel.lineTo(5, -14);
+  panel.lineTo(5.8, -52);
+  panel.quadraticCurveTo(5.8, -55, 2.8, -55);
+  panel.lineTo(-2.8, -55);
+  panel.quadraticCurveTo(-5.8, -55, -5.8, -52);
+  panel.closePath();
+  const panelMesh = new THREE.Mesh(crisp(panel, 0.3, 0.25), C.metalDarkMat);
+  panelMesh.position.z = 1.35;
+  tab.add(panelMesh);
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(9, 36), new THREE.MeshBasicMaterial({ map: tabLabelTexture(), transparent: true, depthWrite: false }));
+  label.position.set(0, -34.5, 2.05);
+  tab.add(label);
+  tab.position.set(0, -17, 18.6);
   g.add(tab);
+  g.scale.setScalar(1.1);
   parent.add(g);
   C.slider = g;
   C.tab = tab;
+  C.tabRest = 0.27; // в покое язычок лежит, касаясь зубцов
 }
 
 async function buildCloth() {
@@ -576,7 +838,7 @@ async function buildCloth() {
   const scene = new THREE.Scene();
   C.scene = scene;
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environment = pmrem.fromScene(studioEnvironment(), 0.02).texture;
   pmrem.dispose();
 
   const fov = 30;
@@ -602,36 +864,41 @@ async function buildCloth() {
   scene.add(catcher);
   C.catcher = catcher;
 
-  // ткань длиннее экрана: молния уходит вниз и вглубь далеко за его край
-  const ext = { m: Math.round(W * 0.3), mg: Math.round(Math.max(W, H) * 1.1), mt: 200, mb: Math.round(H * 2.4) };
-  ext.scale = Math.min(dpr, 4096 / (W + 2 * ext.m), 4096 / (H + ext.mt + ext.mb));
-  const twill = twillTexture();
-  twill.repeat.set((W + 2 * ext.m) / 40, (H + ext.mt + ext.mb) / 40);
+  // ткань длиннее экрана: молния уходит вниз и вглубь далеко за его край.
+  // Размеры текстуры кратны тайлу плетения, чтобы рисунок и рельеф совпадали.
+  const TW = Math.ceil((W * 1.6) / WEAVE_TILE) * WEAVE_TILE;
+  const TH = Math.ceil((H * 3.4 + 200) / WEAVE_TILE) * WEAVE_TILE;
+  const ext = { m: (TW - W) / 2, mg: Math.round(Math.max(W, H) * 1.1), mt: 200, mb: TH - H - 200 };
+  ext.scale = Math.min(dpr, 4096 / TW, 4096 / TH);
   C.frontMat = new THREE.MeshPhysicalMaterial({
     map: drawFront(ext),
-    bumpMap: twill,
-    bumpScale: 1.6,
-    roughness: 0.9,
+    normalMap: weaveNormal(TW / WEAVE_TILE, TH / WEAVE_TILE),
+    normalScale: new THREE.Vector2(1.15, 1.15),
+    roughness: 0.92,
     metalness: 0,
     sheen: 1,
-    sheenRoughness: 0.55,
-    sheenColor: new THREE.Color('#8fa898'),
-    envMapIntensity: 0.45,
+    sheenRoughness: 0.5,
+    sheenColor: new THREE.Color('#93ab9c'),
+    envMapIntensity: 0.4,
     side: THREE.FrontSide,
   });
   C.backMat = new THREE.MeshPhysicalMaterial({
     map: drawLining(ext),
-    roughness: 0.38,
+    normalMap: weaveNormal((TW / WEAVE_TILE) * 3, (TH / WEAVE_TILE) * 3),
+    normalScale: new THREE.Vector2(0.3, 0.3),
+    roughness: 0.36,
     metalness: 0,
     sheen: 0.8,
     sheenRoughness: 0.3,
     sheenColor: new THREE.Color('#ffc9a3'),
     clearcoat: 0.2,
     clearcoatRoughness: 0.4,
-    envMapIntensity: 0.8,
+    envMapIntensity: 0.5,
     side: THREE.BackSide,
   });
-  C.metalMat = new THREE.MeshStandardMaterial({ color: '#a19f98', metalness: 1, roughness: 0.3, envMapIntensity: 0.9 });
+  const brushed = brushedTexture();
+  C.metalMat = new THREE.MeshPhysicalMaterial({ color: '#cfccc4', metalness: 1, roughness: 0.3, roughnessMap: brushed, envMapIntensity: 1.25 });
+  C.metalDarkMat = new THREE.MeshPhysicalMaterial({ color: '#9e9b94', metalness: 1, roughness: 0.6, roughnessMap: brushed, envMapIntensity: 1 });
   C.toothGeo = toothGeometry();
 
   C.group = new THREE.Group();
@@ -665,6 +932,7 @@ function updateCloth(p, dt) {
     D.Lf = W * 0.55;
     D.Lc = H * 0.5;
     D.fold = gain;
+    D.drape = gain;
     C.halves.forEach(updateHalf);
 
     // плоскость ткани наклоняется вокруг верхнего края: низ уходит вглубь
@@ -693,7 +961,7 @@ function updateCloth(p, dt) {
   s.a += s.va * h;
   s.vb += (-40 * (s.b - swingT) - 3.5 * s.vb) * h;
   s.b += s.vb * h;
-  C.tab.rotation.set(-s.a, 0, s.b);
+  C.tab.rotation.set(C.tabRest - s.a, 0, s.b);
 
   renderer.render(C.scene, C.camera);
   return Math.abs(s.va) + Math.abs(s.vb) > 0.002;
