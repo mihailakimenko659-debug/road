@@ -14,7 +14,6 @@ const DT = 1 / 60;
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#fx'), introBg = $('#introBg'), skipBtn = $('#skip');
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // ?t=3.5 в адресе замораживает интро на нужной секунде — удобно разглядывать кадры
 const FREEZE = new URLSearchParams(location.search).get('t');
 
@@ -393,14 +392,19 @@ function buildPage(tex, aspect) {
 
 // ======================================================================
 const S = {}; // текущая сцена
-let startTime = 0, running = false, raf = 0;
+let running = false, raf = 0;
+
+const BLACK = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
+BLACK.needsUpdate = true;
 
 function dispose() {
-  if (!S.bloom) return;
-  S.bloom.dispose();
-  [S.fluid.vel, S.fluid.dye, S.fluid.prs].forEach((pp) => { pp.read.dispose(); pp.write.dispose(); });
-  S.fluid.div.dispose();
-  S.fluid.curl.dispose();
+  if (!S.page) return;
+  S.bloom?.dispose();
+  if (S.fluid) {
+    [S.fluid.vel, S.fluid.dye, S.fluid.prs].forEach((pp) => { pp.read.dispose(); pp.write.dispose(); });
+    S.fluid.div.dispose();
+    S.fluid.curl.dispose();
+  }
   [S.page, S.embers, S.rose].forEach((m) => { m.geometry.dispose(); m.material.dispose(); });
 }
 
@@ -419,13 +423,15 @@ function setup() {
   S.scene3d = new THREE.Scene();
   S.sceneFlat = new THREE.Scene();
 
-  S.fluid = new Fluid(renderer, W / H, mobile ? 150 : 210, mobile ? 360 : 540, GLSL_COMMON);
-  S.bloom = new Bloom(renderer, Math.round(W * dpr), Math.round(H * dpr), 6);
+  // симуляции и свечению нужны буферы с плавающей точкой; без них — упрощённый режим
+  const floatOK = renderer.capabilities.isWebGL2 && (renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float'));
+  S.fluid = floatOK ? new Fluid(renderer, W / H, mobile ? 150 : 210, mobile ? 360 : 540, GLSL_COMMON) : null;
+  S.bloom = floatOK ? new Bloom(renderer, Math.round(W * dpr), Math.round(H * dpr), 6) : null;
 
   S.page = buildPage(introTexture(W, H, Math.min(dpr, 1.5)), W / H);
   S.sceneFlat.add(S.page);
   S.embers = buildEmbers(mobile ? 1600 : 3400, dpr, W / H);
-  S.embers.material.uniforms.uTexel.value.copy(S.fluid.texel);
+  if (S.fluid) S.embers.material.uniforms.uTexel.value.copy(S.fluid.texel);
   S.sceneFlat.add(S.embers);
 
   S.rose = buildRose(W, H, S.cam3d, (H * dpr) / 2 / Math.tan((35 * Math.PI) / 360));
@@ -435,6 +441,7 @@ function setup() {
 }
 
 function simulateTo(T, maxSteps) {
+  if (!S.fluid) return;
   let n = 0;
   while (S.simTime + DT <= T && n < maxSteps) {
     S.fluid.step(S.simTime, DT);
@@ -449,46 +456,82 @@ function draw(T) {
   S.rose.material.uniforms.uTime.value = T;
   S.rose.rotation.y = -0.5 + T * 0.16;
   S.embers.material.uniforms.uTime.value = T;
-  S.embers.material.uniforms.uVel.value = S.fluid.vel.read.texture;
+  S.embers.material.uniforms.uVel.value = S.fluid ? S.fluid.vel.read.texture : BLACK;
   S.page.material.uniforms.uTime.value = T;
-  S.page.material.uniforms.uDye.value = S.fluid.dye.read.texture;
-  S.bloom.render(() => {
+  S.page.material.uniforms.uDye.value = S.fluid ? S.fluid.dye.read.texture : BLACK;
+  const scene = () => {
     renderer.render(S.sceneFlat, S.camFlat);
     renderer.render(S.scene3d, S.cam3d);
-  });
+  };
+  if (S.bloom) S.bloom.render(scene);
+  else {
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear();
+    scene();
+  }
 }
 
+// Время интро копится по нарисованным кадрам: если вкладка открылась в фоне
+// или кадр запоздал, интро не «проматывается», а ждёт зрителя.
+let clockT = 0, lastNow = 0;
 function frame(now) {
-  const T = FREEZE !== null ? parseFloat(FREEZE) : (now - startTime) / 1000;
-  draw(T);
-  introBg.classList.add('gone');
+  if (lastNow) clockT += Math.min(0.1, (now - lastNow) / 1000);
+  lastNow = now;
+  const T = FREEZE !== null ? parseFloat(FREEZE) : clockT;
+  try {
+    draw(T);
+  } catch (e) {
+    return fail(e);
+  }
+  introBg.classList.remove('show');
   if (T >= END && FREEZE === null) return finish();
   raf = requestAnimationFrame(frame);
 }
 
 function finish() {
   running = false;
+  $('#watch').hidden = false;
   cancelAnimationFrame(raf);
   canvas.classList.add('done');
-  introBg.classList.add('gone');
+  introBg.classList.remove('show');
   skipBtn.hidden = true;
   document.documentElement.style.overflow = '';
 }
 
+function fail(e) {
+  console.error(e);
+  finish();
+  const n = $('#notice');
+  n.textContent = `Интро не запустилось: ${e?.message || e}. Пришлите этот текст — разберусь.`;
+  n.hidden = false;
+}
+
 function play() {
-  if (!renderer || reduceMotion) return finish();
+  if (!renderer) return fail(new Error('браузер не дал доступ к WebGL (видеокарте)'));
   running = true;
+  $('#watch').hidden = true;
   canvas.classList.remove('done');
-  introBg.classList.remove('gone');
+  introBg.classList.add('show');
   skipBtn.hidden = false;
   document.documentElement.style.overflow = 'hidden';
   window.scrollTo(0, 0);
-  setup();
-  // режим разглядывания кадра: заранее досчитываем симуляцию до нужной секунды
-  if (FREEZE !== null) simulateTo(parseFloat(FREEZE), 100000);
-  startTime = performance.now();
-  raf = requestAnimationFrame(frame);
+  try {
+    setup();
+    // режим разглядывания кадра: заранее досчитываем симуляцию до нужной секунды
+    if (FREEZE !== null) simulateTo(parseFloat(FREEZE), 100000);
+  } catch (e) {
+    return fail(e);
+  }
+  clockT = 0;
+  lastNow = 0;
+  const go = () => (raf = requestAnimationFrame(frame));
+  if (document.visibilityState === 'visible') go();
+  else document.addEventListener('visibilitychange', go, { once: true });
 }
+
+// пока вкладка скрыта, кадры не рисуются; после возврата не считаем паузу
+document.addEventListener('visibilitychange', () => (lastNow = 0));
 
 skipBtn.addEventListener('click', finish);
 $('#replay').addEventListener('click', () => {
@@ -499,9 +542,8 @@ window.addEventListener('resize', () => {
   if (!running) return;
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    const t = (performance.now() - startTime) / 1000;
     setup();
-    S.simTime = Math.max(SIM_START, t);
+    S.simTime = Math.max(SIM_START, clockT);
   }, 120);
 });
 
@@ -509,4 +551,12 @@ window.addEventListener('resize', () => {
 Promise.race([
   Promise.all(['600 20px "Cormorant Garamond"', 'italic 500 22px "Cormorant Garamond"', '11px "JetBrains Mono"'].map((f) => document.fonts.load(f))),
   new Promise((r) => setTimeout(r, 2000)),
-]).catch(() => {}).then(play);
+]).catch(() => {}).then(() => {
+  // интро запускается кнопкой (в режиме ?t= — сразу, для разглядывания кадров)
+  if (FREEZE !== null) play();
+  else finish();
+});
+$('#watch').addEventListener('click', () => {
+  $('#watch').hidden = true;
+  if (!running) play();
+});
