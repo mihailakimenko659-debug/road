@@ -54,6 +54,26 @@ def load_sales():
     return by_skin, fetched
 
 
+def sales_per_day(by_skin):
+    """Примерно сколько продаж в день на CSFloat (все износы и StatTrak вместе).
+
+    По каждому варианту предмета: число продаж / длина периода, который они покрывают.
+    Если продаж меньше 40, значит CSFloat отдал всё, что было, — делим на 30 дней минимум.
+    """
+    per = defaultdict(lambda: defaultdict(list))
+    for skin, sales in by_skin.items():
+        for x in sales:
+            per[skin][x['name']].append(datetime.fromisoformat(x['date'].replace('Z', '+00:00')))
+    out = {}
+    for skin, variants in per.items():
+        tot = 0.0
+        for ds in variants.values():
+            span = max((max(ds) - min(ds)).total_seconds() / 86400, 0.5)
+            tot += len(ds) / (span if len(ds) >= 40 else max(span, 30))
+        out[skin] = round(tot, 1)
+    return out
+
+
 def q(xs, p):
     xs = sorted(xs)
     if not xs:
@@ -94,8 +114,9 @@ def main():
     with open(os.path.join(HERE, 'special_seeds.json'), encoding='utf-8') as f:
         cfg = json.load(f)
     by_skin, fetched = load_sales()
+    liquidity = sales_per_day(by_skin)
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    rows, evidence = [], []
+    rows, evidence, per_seed = [], [], []
 
     def analyse(skin, feature, top_seeds, other_seeds, group):
         sales = by_skin.get(skin, [])
@@ -105,6 +126,7 @@ def main():
         v, why = verdict(top, other, rest)
         base = statistics.median(r['ratio'] for r in rest) if rest else None
         dates = sorted(s['date'][:10] for s in sales)
+        spec_sales = top + other
         row = {
             'group': group, 'skin': skin, 'feature': feature,
             'seeds_in_guides': len(set(top_seeds) | set(other_seeds)),
@@ -113,11 +135,23 @@ def main():
             'rest_p90_ratio': round(q([r['ratio'] for r in rest], 0.9), 3) if rest else '',
             'special_median_ratio': round(statistics.median(r['ratio'] for r in top + other), 3) if top + other else '',
             'premium_vs_rest': round(statistics.median(r['ratio'] for r in top + other) / base, 2) if (top + other and base) else '',
+            'premium_usd_median': round(statistics.median(x['price'] - x['predicted_price'] for x in spec_sales), 2) if spec_sales else '',
+            'median_price': round(statistics.median(x['price'] for x in sales), 2) if sales else '',
+            'sales_per_day': liquidity.get(skin, ''),
             'verdict': v, 'why': why,
             'sales_from': dates[0] if dates else '', 'sales_to': dates[-1] if dates else '',
             'source': 'CSFloat history/sales', 'checked': today,
         }
         rows.append(row)
+        base_l = base or 1
+        for seed in sorted({x['seed'] for x in spec_sales}):
+            xs = [x for x in spec_sales if x['seed'] == seed]
+            m = statistics.median(x['ratio'] for x in xs) / base_l
+            per_seed.append({'skin': skin, 'group': group, 'seed': seed, 'tier': 'top' if seed in top_seeds else 'other',
+                             'n': len(xs), 'x': round(m, 2),
+                             'usd': round(statistics.median(x['price'] - x['predicted_price'] for x in xs), 2),
+                             'max_price': max(x['price'] for x in xs),
+                             'dates': f"{min(x['date'][:10] for x in xs)} … {max(x['date'][:10] for x in xs)}"})
         for s in sorted(top + other, key=lambda s: -s['ratio']):
             evidence.append({'skin': skin, 'group': group, 'tier': 'top' if s in top else 'other', **s,
                              'rest_median': base})
@@ -132,7 +166,7 @@ def main():
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
         w.writerows(rows)
-    write_md(rows, evidence, by_skin, fetched, today)
+    write_md(rows, evidence, per_seed, by_skin, fetched, today)
     print(f'{len(rows)} скинов → {OUT_MD}')
 
 
@@ -140,7 +174,7 @@ def fmt(x, d=2):
     return '' if x in ('', None) else f'{x:.{d}f}'
 
 
-def write_md(rows, evidence, by_skin, fetched, today):
+def write_md(rows, evidence, per_seed, by_skin, fetched, today):
     order = ['переплата есть', 'похоже на переплату', 'неясно', 'переплаты не видно', 'нет продаж', 'мало данных']
     spec = [r for r in rows if r['group'] == 'особые']
     ctrl = [r for r in rows if r['group'] == 'контроль']
@@ -176,12 +210,20 @@ def write_md(rows, evidence, by_skin, fetched, today):
         if cnt[v]:
             a(f'| {v} | {cnt[v]} |')
     a('')
-    a('| Скин | Особенность | Продаж всего | Из них особых (лучших) | Обычные: медиана «цена/справка» | Особые: медиана | Во сколько раз | Вывод | Почему | Даты продаж |')
-    a('|---|---|---|---|---|---|---|---|---|---|')
+    a('«Продаж в день» — примерная ликвидность на CSFloat по всем износам вместе. «Переплата, $» — медиана разницы между ценой продажи особого паттерна и справочной ценой.\n')
+    a('| Скин | Особенность | Продаж в день | Медианная цена, $ | Продаж в выборке | Из них особых (лучших) | Во сколько раз дороже обычных | Переплата, $ | Вывод | Почему | Даты продаж |')
+    a('|---|---|---|---|---|---|---|---|---|---|---|')
     for r in sorted(spec, key=lambda r: (order.index(r['verdict']), -(r['premium_vs_rest'] or 0), r['skin'])):
-        a(f"| {r['skin']} | {r['feature']} | {r['sales_total']} | {r['sales_special']} ({r['sales_top']}) | "
-          f"{fmt(r['rest_median_ratio'])} | {fmt(r['special_median_ratio'])} | {fmt(r['premium_vs_rest'])} | "
+        a(f"| {r['skin']} | {r['feature']} | {r['sales_per_day']} | {fmt(r['median_price'])} | {r['sales_total']} | {r['sales_special']} ({r['sales_top']}) | "
+          f"{fmt(r['premium_vs_rest'])} | {fmt(r['premium_usd_median'])} | "
           f"**{r['verdict']}** | {r['why']} | {r['sales_from']} … {r['sales_to']} |")
+    a('')
+    a('## По каждому номеру паттерна\n')
+    a('Помогает понять, какие номера из гайдов реально продаются дороже, а какие нет. «×» — во сколько раз дороже медианы обычных паттернов этого скина. Одна продажа — это ещё не закономерность.\n')
+    a('| Скин | Паттерн | Уровень в гайде | Продаж | × к обычным | Переплата, $ (медиана) | Самая дорогая продажа, $ | Даты |')
+    a('|---|---|---|---|---|---|---|---|')
+    for e in sorted((e for e in per_seed if e['group'] == 'особые'), key=lambda e: (e['skin'], -e['x'])):
+        a(f"| {e['skin']} | {e['seed']} | {e['tier']} | {e['n']} | {e['x']:.2f} | {e['usd']:.2f} | {e['max_price']:.2f} | {e['dates']} |")
     a('')
     a('## Контрольная группа\n')
     a('| Скин | Продаж всего | «Мем-номеров» | Обычные: медиана | 90% обычных дешевле чем | Мем-номера: медиана | Вывод |')
