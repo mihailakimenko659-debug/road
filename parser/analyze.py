@@ -124,6 +124,11 @@ def main():
         other = [s for s in sales if s['seed'] in other_seeds and s['seed'] not in top_seeds]
         rest = [s for s in sales if s['seed'] not in top_seeds and s['seed'] not in other_seeds]
         v, why = verdict(top, other, rest)
+        if not sales:
+            v, why = 'нет на CSFloat', 'продаж с таким названием нет — возможно, в гайде неточное название скина'
+        spec_usd = [x['price'] - x['predicted_price'] for x in top + other]
+        if v in ('переплата есть', 'похоже на переплату') and statistics.median(spec_usd) < 1:
+            v, why = 'копеечная переплата', why + f'; но в деньгах это меньше $1 (медиана +${statistics.median(spec_usd):.2f})'
         base = statistics.median(r['ratio'] for r in rest) if rest else None
         dates = sorted(s['date'][:10] for s in sales)
         spec_sales = top + other
@@ -166,16 +171,73 @@ def main():
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
         w.writerows(rows)
-    write_md(rows, evidence, per_seed, by_skin, fetched, today)
+    yt = youtube_section(cfg, by_skin)
+    write_md(rows, evidence, per_seed, by_skin, fetched, today, yt)
     print(f'{len(rows)} скинов → {OUT_MD}')
+
+
+def esc(t):
+    return str(t).replace('|', '\\|')
 
 
 def fmt(x, d=2):
     return '' if x in ('', None) else f'{x:.{d}f}'
 
 
-def write_md(rows, evidence, per_seed, by_skin, fetched, today):
-    order = ['переплата есть', 'похоже на переплату', 'неясно', 'переплаты не видно', 'нет продаж', 'мало данных']
+def youtube_section(cfg, by_skin):
+    """Проверка утверждений из видео YouTube теми же продажами CSFloat."""
+    claims_p = os.path.join(HERE, 'youtube_claims.json')
+    videos_p = os.path.join(HERE, 'cache', 'youtube_videos.json')
+    if not os.path.exists(claims_p):
+        return []
+    with open(claims_p, encoding='utf-8') as f:
+        claims = json.load(f)['claims']
+    meta, stats = {}, {'videos': 0, 'skins': 0, 'searched': 0}
+    if os.path.exists(videos_p):
+        with open(videos_p, encoding='utf-8') as f:
+            vids = json.load(f)
+        stats = {'videos': sum(len(v) for v in vids.values()), 'skins': sum(1 for v in vids.values() if v),
+                 'searched': len(vids)}
+        meta = {v['id']: v for vs in vids.values() for v in vs}
+    L = []
+    a = L.append
+    a('## Проверка гайдов с YouTube\n')
+    a(f"Искали видео по {stats['searched']} скинам (запросы «<скин> pattern» и «<скин> паттерн»). Подходящих видео по паттернам нашлось "
+      f"{stats['videos']} — по {stats['skins']} скинам. Для остальных на YouTube есть только обзоры скина без разговора о паттернах.\n")
+    a('Что доступно без входа: название, канал, дата, просмотры и описание видео. Субтитры и сам ролик YouTube с облачного сервера '
+      'не отдаёт («подтвердите, что вы не робот»), поэтому номера, которые автор только показывает в кадре или произносит, сюда не попали. '
+      'Большинство гайдов именно такие: номера в них **на экране**, а не в тексте.\n')
+    a('Ниже — все конкретные номера, которые удалось найти в названиях и описаниях, пересказ своими словами. «Есть в гайдах Steam» — '
+      'встречается ли номер в нашем каталоге. Проверка — те же продажи CSFloat, что и выше.\n')
+    a('| Скин | Паттерн(ы) | Что утверждает видео | Видео (канал, дата, просмотры) | Есть в гайдах Steam | Продаж этих паттернов | × к обычным | Вывод по продажам |')
+    a('|---|---|---|---|---|---|---|---|')
+    for c in claims:
+        skin = c['skin']
+        info = cfg['special'].get(skin, {})
+        known = set(info.get('top', [])) | set(info.get('other', []))
+        claimed_all = {x for cc in claims if cc['skin'] == skin for x in cc['seeds']}
+        sales = by_skin.get(skin, [])
+        hit = [x for x in sales if x['seed'] in c['seeds']]
+        rest = [x for x in sales if x['seed'] not in known and x['seed'] not in claimed_all]
+        v, why = verdict(hit, [], rest)
+        base = statistics.median(x['ratio'] for x in rest) if rest else None
+        mult = f"{statistics.median(x['ratio'] for x in hit) / base:.2f}" if hit and base else ''
+        m = meta.get(c['video'], {})
+        title = m.get('title', '').replace('|', '/')[:80]
+        when = m.get('published', '').replace('Premiered ', '')
+        seeds = ', '.join(map(str, c['seeds'])) if len(c['seeds']) <= 8 else f"{len(c['seeds'])} номеров ({', '.join(map(str, c['seeds'][:5]))}, …)"
+        in_guides = sum(1 for x in c['seeds'] if x in known)
+        g = 'да' if in_guides == len(c['seeds']) else ('нет' if not in_guides else f'{in_guides} из {len(c["seeds"])}')
+        if not sales:
+            v = 'продаж нет'
+        a(f"| {esc(skin)} | {seeds} | {c['claim']} | [{title}](https://www.youtube.com/watch?v={c['video']}) — {m.get('channel', '')}, {when}, {m.get('views', '')} | "
+          f"{g} | {len(hit)} | {mult} | **{v}** |")
+    a('')
+    return L
+
+
+def write_md(rows, evidence, per_seed, by_skin, fetched, today, yt=()):
+    order = ['переплата есть', 'похоже на переплату', 'копеечная переплата', 'неясно', 'переплаты не видно', 'нет продаж', 'мало данных', 'нет на CSFloat']
     spec = [r for r in rows if r['group'] == 'особые']
     ctrl = [r for r in rows if r['group'] == 'контроль']
     total_sales = sum(len(v) for v in by_skin.values())
@@ -187,6 +249,20 @@ def write_md(rows, evidence, per_seed, by_skin, fetched, today):
       f'(`csfloat.com/api/v1/history/<предмет>/sales`, без входа в аккаунт). '
       f'Собрано продаж: **{total_sales}** (сувениры исключены), даты продаж: {all_dates[0] if all_dates else "—"} … {all_dates[-1] if all_dates else "—"}. '
       f'Списки «особых» паттернов — из `reports/паттерны-обычных-скинов.csv` (очищено в `parser/special_seeds.json`).\n')
+    a('## Коротко\n')
+    good = [r for r in spec if r['verdict'] == 'переплата есть']
+    a(f"- Проверено скинов с особыми паттернами: **{len(spec)}**. Переплата подтверждается продажами у **{len(good)}**, "
+      f"«похоже» (одна продажа) — у {sum(r['verdict'] == 'похоже на переплату' for r in spec)}, "
+      f"переплаты не видно — у {sum(r['verdict'] == 'переплаты не видно' for r in spec)}, "
+      f"продаж особых паттернов в выборке нет — у {sum(r['verdict'] == 'нет продаж' for r in spec)}.")
+    a('- Контрольная группа (паттерн ни на что не влияет) переплату **не показала** ни разу — значит, метод не выдумывает переплату на пустом месте.')
+    top_usd = sorted(good, key=lambda r: -r['premium_usd_median'])[:8]
+    a('- **Самая большая переплата в деньгах** (медиана, $): ' + '; '.join(f"{r['skin']} +${r['premium_usd_median']:.0f}" for r in top_usd) + '.')
+    top_x = sorted(good, key=lambda r: -r['premium_vs_rest'])[:8]
+    a('- **Самая большая переплата в разах** (обычно у дешёвых скинов): ' + '; '.join(f"{r['skin']} ×{r['premium_vs_rest']:.0f}" for r in top_x) + '.')
+    liq = sorted((r for r in good if r['sales_per_day'] != ''), key=lambda r: -r['sales_per_day'])[:8]
+    a('- **Самые ликвидные из подтверждённых** (продаж в день на CSFloat): ' + '; '.join(f"{r['skin']} ~{r['sales_per_day']:.0f}" for r in liq) + '.')
+    a('- Внутри одного скина гайды часто правы лишь частично: одни номера стабильно продаются дороже, другие из того же списка — по обычной цене. Смотрите таблицу «По каждому номеру паттерна».\n')
     a('## Как считали\n')
     a('- У каждой продажи CSFloat указывает **справочную цену** предмета. Она учитывает износ, float и частично наклейки, но **не паттерн**. '
       'Делим цену продажи на справочную: у обычного паттерна выходит около 1,0, переплата за паттерн видна как число больше 1.')
@@ -214,7 +290,7 @@ def write_md(rows, evidence, per_seed, by_skin, fetched, today):
     a('| Скин | Особенность | Продаж в день | Медианная цена, $ | Продаж в выборке | Из них особых (лучших) | Во сколько раз дороже обычных | Переплата, $ | Вывод | Почему | Даты продаж |')
     a('|---|---|---|---|---|---|---|---|---|---|---|')
     for r in sorted(spec, key=lambda r: (order.index(r['verdict']), -(r['premium_vs_rest'] or 0), r['skin'])):
-        a(f"| {r['skin']} | {r['feature']} | {r['sales_per_day']} | {fmt(r['median_price'])} | {r['sales_total']} | {r['sales_special']} ({r['sales_top']}) | "
+        a(f"| {esc(r['skin'])} | {r['feature']} | {r['sales_per_day']} | {fmt(r['median_price'])} | {r['sales_total']} | {r['sales_special']} ({r['sales_top']}) | "
           f"{fmt(r['premium_vs_rest'])} | {fmt(r['premium_usd_median'])} | "
           f"**{r['verdict']}** | {r['why']} | {r['sales_from']} … {r['sales_to']} |")
     a('')
@@ -223,24 +299,25 @@ def write_md(rows, evidence, per_seed, by_skin, fetched, today):
     a('| Скин | Паттерн | Уровень в гайде | Продаж | × к обычным | Переплата, $ (медиана) | Самая дорогая продажа, $ | Даты |')
     a('|---|---|---|---|---|---|---|---|')
     for e in sorted((e for e in per_seed if e['group'] == 'особые'), key=lambda e: (e['skin'], -e['x'])):
-        a(f"| {e['skin']} | {e['seed']} | {e['tier']} | {e['n']} | {e['x']:.2f} | {e['usd']:.2f} | {e['max_price']:.2f} | {e['dates']} |")
+        a(f"| {esc(e['skin'])} | {e['seed']} | {e['tier']} | {e['n']} | {e['x']:.2f} | {e['usd']:.2f} | {e['max_price']:.2f} | {e['dates']} |")
     a('')
     a('## Контрольная группа\n')
     a('| Скин | Продаж всего | «Мем-номеров» | Обычные: медиана | 90% обычных дешевле чем | Мем-номера: медиана | Вывод |')
     a('|---|---|---|---|---|---|---|')
     for r in sorted(ctrl, key=lambda r: r['skin']):
-        a(f"| {r['skin']} | {r['sales_total']} | {r['sales_special']} | {fmt(r['rest_median_ratio'])} | {fmt(r['rest_p90_ratio'])} | "
+        a(f"| {esc(r['skin'])} | {r['sales_total']} | {r['sales_special']} | {fmt(r['rest_median_ratio'])} | {fmt(r['rest_p90_ratio'])} | "
           f"{fmt(r['special_median_ratio'])} | {r['verdict']} |")
     p90s = [r['rest_p90_ratio'] for r in ctrl if r['rest_p90_ratio'] != '']
     if p90s:
         a(f'\nНа контрольных скинах 90% продаж укладываются в «цена/справка» до ~{statistics.median(p90s):.2f}. '
           'Это обычный «шум» цен: разница в пределах этого числа ещё не означает переплату за паттерн.\n')
+    L.extend(yt)
     a('## Доказательства: каждая продажа особого паттерна\n')
     a('Цена — в долларах США, как её показывает CSFloat. «Справка» — справочная цена CSFloat на момент продажи. Источник у каждой строки — ссылка на историю продаж этого предмета.\n')
     a('| Скин | Износ | ST | Паттерн | Уровень | Float | Наклеек | Дата продажи | Цена, $ | Справка, $ | Цена/справка | Обычные (медиана) | Источник |')
     a('|---|---|---|---|---|---|---|---|---|---|---|---|---|')
     for e in sorted(evidence, key=lambda e: (e['group'] != 'особые', e['skin'], -e['ratio'])):
-        a(f"| {e['skin']} | {e['wear']} | {'да' if e['stattrak'] else ''} | {e['seed']} | {e['tier']} | {e['float']:.4f} | {e['stickers']} | "
+        a(f"| {esc(e['skin'])} | {e['wear']} | {'да' if e['stattrak'] else ''} | {e['seed']} | {e['tier']} | {e['float']:.4f} | {e['stickers']} | "
           f"{e['date'][:10]} | {e['price']:.2f} | {e['predicted_price']:.2f} | {e['ratio']:.2f} | {fmt(e['rest_median'])} | "
           f"[CSFloat]({link(e['name'])}) (проверено {fetched.get(e['name'], today)}) |")
     a('')

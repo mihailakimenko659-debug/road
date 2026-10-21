@@ -66,6 +66,11 @@ def names(stattrak):
     with open(os.path.join(HERE, 'special_seeds.json'), encoding='utf-8') as f:
         cfg = json.load(f)
     skins = list(cfg['special']) + cfg['control']['skins']
+    claims = os.path.join(HERE, 'youtube_claims.json')
+    if os.path.exists(claims):
+        with open(claims, encoding='utf-8') as f:
+            skins += [c['skin'] for c in json.load(f)['claims'] if c['skin'] not in skins]
+    skins = list(dict.fromkeys(skins))
     for skin in skins:
         for w in WEARS:
             yield f'{skin} ({w})'

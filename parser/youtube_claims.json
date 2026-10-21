@@ -1,0 +1,31 @@
+{
+  "_note": "Утверждения из видео YouTube (название и описание), пересказ своими словами. Проверено вручную 2026-10-21. Номера, которые только показаны в кадре или сказаны вслух, сюда не попали — субтитры и видео с облачного сервера недоступны.",
+  "claims": [
+    {"skin": "AK-47 | Aphrodite", "video": "xA7lX01Hs4g", "seeds": [408], "claim": "автор называет свой экземпляр «Tier-1 Gold Gem»"},
+    {"skin": "AK-47 | Case Hardened", "video": "luFJNx_rOE8", "seeds": [713], "claim": "особый паттерн «Moses» (FN)"},
+    {"skin": "M4A1-S | Fizzy POP", "video": "n1TP58nvJ48", "seeds": [275, 789, 127, 890, 417, 550, 241], "claim": "паттерны с красными линиями"},
+    {"skin": "M4A1-S | Fizzy POP", "video": "naobK72m2LY", "seeds": [649], "claim": "«топовый» паттерн"},
+    {"skin": "M4A1-S | Fizzy POP", "video": "k1rrwf9ECho", "seeds": [449], "claim": "«топовый» паттерн"},
+    {"skin": "M4A1-S | Fizzy POP", "video": "7j_eI02_uJg", "seeds": [828], "claim": "автор считает лучшим паттерном"},
+    {"skin": "AWP | POP AWP", "video": "PX7P8l6MLn4", "seeds": [87, 16, 910], "claim": "редкие паттерны (обзор на русском)"},
+    {"skin": "AWP | POP AWP", "video": "ZruwWhEtTus", "seeds": [87], "claim": "полностью белый паттерн"},
+    {"skin": "Galil AR | Sandstorm", "video": "db67xVWUL_w", "seeds": [784], "claim": "«новый» фиолетовый паттерн"},
+    {"skin": "Glock-18 | Grinder", "video": "jEnXNlREs9s", "seeds": [913], "claim": "показ паттерна из серии «особых» (канал ZE)"},
+    {"skin": "P250 | Nevermore", "video": "BFo9BNUzdyg", "seeds": [39], "claim": "показ паттерна из серии «особых» (канал ZE)"},
+    {"skin": "P250 | Nevermore", "video": "LxvY3Q4TvRQ", "seeds": [295], "claim": "редкий «полный ворон»"},
+    {"skin": "P250 | Nevermore", "video": "CP8GDw0dGD8", "seeds": [249], "claim": "«летящая птица»"},
+    {"skin": "Five-SeveN | Berries And Cherries", "video": "kWaKG3ShtDE", "seeds": [382], "claim": "блю гем, около 87% синего"},
+    {"skin": "Five-SeveN | Case Hardened", "video": "JHqkc0Ua2iM", "seeds": [579], "claim": "фиолетовые кончик и приклад"},
+    {"skin": "CZ75-Auto | Polymer", "video": "Cy8Asz1RwZA", "seeds": [957], "claim": "полностью синий паттерн"},
+    {"skin": "Desert Eagle | Heat Treated", "video": "Eu8xRz4WlFE", "seeds": [386], "claim": "блю гем"},
+    {"skin": "Desert Eagle | Heat Treated", "video": "n5TWvENqZrY", "seeds": [48], "claim": "автор пишет, что это ранг 1 по одному из гайдов Steam"},
+    {"skin": "MAC-10 | Case Hardened", "video": "aBvKczvyRZY", "seeds": [349], "claim": "автор спрашивает, не лучший ли это блю гем"},
+    {"skin": "USP-S | Alpine Camo", "video": "_cG7MEm9-CM", "seeds": [16, 48, 66, 67, 69, 96, 148, 159, 259, 263, 273, 297, 308, 321, 324, 341, 347, 461, 482, 490, 517, 530, 567, 674, 695, 704, 723, 772, 781, 790, 792, 843, 885, 904, 948, 990], "claim": "список блю гемов Tier 1 (фильтр для поиска на CSFloat)"},
+    {"skin": "USP-S | Alpine Camo", "video": "_cG7MEm9-CM", "seeds": [111, 117, 225, 338, 354, 364, 370, 386, 406, 426, 537, 542, 587, 592, 607, 611, 651, 668, 673, 696, 701, 730, 764, 846, 856, 876, 880, 882, 942, 953], "claim": "список блю гемов Tier 2"},
+    {"skin": "USP-S | Alpine Camo", "video": "5EM2AhCHJVs", "seeds": [674, 490, 704], "claim": "топ-паттерны (обзор на русском)"},
+    {"skin": "Tec-9 | Sandstorm", "video": "h_XlNVEWU0c", "seeds": [862], "claim": "фиолетовый паттерн"},
+    {"skin": "Desert Eagle | Sputnik", "video": "_D_ci-nfops", "seeds": [822, 978, 1, 666], "claim": "«максимально синие» паттерны"},
+    {"skin": "UMP-45 | Moonrise", "video": "XTlL4XgMQj4", "seeds": [666], "claim": "паттерн со звездой"},
+    {"skin": "P2000 | Amber Fade", "video": "gUvTYezj0-U", "seeds": [763], "claim": "показ паттерна 763 (у фейдов обычно самый полный фейд)"}
+  ]
+}
