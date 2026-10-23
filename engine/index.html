@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Двигатель на стенде</title>
+  <meta name="claude:viewport-fit-sides" content="cover">
+  <meta name="description" content="Интерактивная 3D-лаборатория: рядный бензиновый двигатель в разрезе — такты, клапаны, давление, мощность.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%229%22 y=%224%22 width=%2214%22 height=%2216%22 rx=%222%22 fill=%22none%22 stroke=%22%23ffb547%22 stroke-width=%222%22/%3E%3Crect x=%2211%22 y=%2213%22 width=%2210%22 height=%224%22 fill=%22%23ffb547%22/%3E%3Cpath d=%22M16 17v7%22 stroke=%22%23ffb547%22 stroke-width=%222%22/%3E%3Ccircle cx=%2216%22 cy=%2226%22 r=%223%22 fill=%22%235cc8ff%22/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@300;500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="scene" aria-label="3D-модель двигателя"></canvas>
+  <div id="labels" aria-hidden="true"></div>
+  <div id="tip" class="tip" hidden></div>
+
+  <header class="brand">
+    <p class="kicker">Лаборатория ДВС · бокс № 2</p>
+    <h1>Рядный двигатель</h1>
+    <p id="spec" class="spec">—</p>
+  </header>
+
+  <section id="now" class="now" aria-live="polite">
+    <div class="now-head">
+      <span id="nowCyl" class="mono">Цилиндр 1</span>
+      <span id="nowStroke" class="stroke-pill">—</span>
+    </div>
+    <p id="nowText" class="now-text">—</p>
+    <div class="valves">
+      <span id="vIn" class="valve-chip in">Впуск: закрыт</span>
+      <span id="vEx" class="valve-chip ex">Выпуск: закрыт</span>
+      <span id="vSpark" class="valve-chip spark" hidden>Искра</span>
+    </div>
+  </section>
+
+  <section id="gauges" class="gauges">
+    <button id="gaugesToggle" class="gauges-toggle" aria-expanded="true">Приборы</button>
+    <div class="gauges-body">
+      <div class="readouts">
+        <div class="ro"><span>Обороты</span><b id="roRpm">—</b><small>об/мин</small></div>
+        <div class="ro"><span>Момент</span><b id="roTorque">—</b><small>Н·м</small></div>
+        <div class="ro"><span>Мощность</span><b id="roPower">—</b><small id="roHp">кВт</small></div>
+        <div class="ro"><span>КПД</span><b id="roEff">—</b><small>эффективный</small></div>
+        <div class="ro"><span>p<sub>max</sub></span><b id="roPmax">—</b><small id="roPmaxA">бар</small></div>
+        <div class="ro"><span>Впуск</span><b id="roMap">—</b><small>кПа абс.</small></div>
+        <div class="ro"><span>Поршень</span><b id="roPs">—</b><small>м/с, средняя</small></div>
+        <div class="ro" id="knockBox"><span>Детонация</span><b id="roKnock">—</b><small id="roTu">—</small></div>
+      </div>
+      <div class="chart-head">
+        <div class="seg small" role="tablist" aria-label="График">
+          <button data-chart="pv" class="on" role="tab">p–V</button>
+          <button data-chart="pa" role="tab">p–φ и клапаны</button>
+        </div>
+        <label class="mini"><input id="logScale" type="checkbox"> лог. шкала</label>
+      </div>
+      <canvas id="chart" class="chart"></canvas>
+      <div class="legend">
+        <span><i class="c-intake"></i>впуск</span><span><i class="c-compress"></i>сжатие</span><span><i class="c-fire"></i>рабочий ход</span><span><i class="c-exhaust"></i>выпуск</span>
+      </div>
+      <div class="cyc-head"><span>Такты по цилиндрам</span><span id="order" class="mono">—</span></div>
+      <canvas id="cycles" class="cycles"></canvas>
+      <p id="live" class="live mono">—</p>
+    </div>
+  </section>
+
+  <button id="toggleControls" class="fab" aria-expanded="false" aria-controls="controls">Настройки</button>
+
+  <aside id="controls" class="panel">
+    <section>
+      <h3>Режим работы</h3>
+      <label class="slider"><span class="row"><span>Обороты коленвала</span><output id="rpmV"></output></span>
+        <input id="rpm" type="range" min="600" max="7000" step="50" value="2000"></label>
+      <label class="slider"><span class="row"><span>Педаль газа (дроссель)</span><output id="throttleV"></output></span>
+        <input id="throttle" type="range" min="0" max="100" step="1" value="60"></label>
+      <label class="slider"><span class="row"><span>Опережение зажигания</span><output id="advanceV"></output></span>
+        <input id="advance" type="range" min="0" max="45" step="1" value="20"></label>
+      <div class="hint-row"><span id="bestAdv" class="hint">—</span><button id="setBest" class="link">Поставить</button></div>
+      <label class="slider"><span class="row"><span>Фаза впускного вала</span><output id="vvtV"></output></span>
+        <input id="vvt" type="range" min="-20" max="30" step="1" value="0"></label>
+    </section>
+
+    <section>
+      <h3>Конструкция</h3>
+      <div class="field-label">Цилиндров</div>
+      <div id="cylinders" class="seg" role="radiogroup" aria-label="Число цилиндров">
+        <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4" class="on">4</button><button data-v="6">6</button>
+      </div>
+      <label class="slider"><span class="row"><span>Диаметр цилиндра</span><output id="boreV"></output></span>
+        <input id="bore" type="range" min="70" max="100" step="1" value="86"></label>
+      <label class="slider"><span class="row"><span>Ход поршня</span><output id="strokeV"></output></span>
+        <input id="stroke" type="range" min="60" max="100" step="1" value="86"></label>
+      <label class="slider"><span class="row"><span>Степень сжатия</span><output id="crV"></output></span>
+        <input id="cr" type="range" min="8" max="14" step="0.1" value="10.5"></label>
+    </section>
+
+    <section>
+      <h3>Разрез</h3>
+      <div id="cut" class="seg" role="radiogroup" aria-label="Разрез">
+        <button data-v="none">Нет</button><button data-v="quarter" class="on">Вырез</button><button data-v="long">Вдоль</button><button data-v="cross">Поперёк</button>
+      </div>
+      <label class="slider" id="cutPosRow"><span class="row"><span id="cutPosLabel">Положение</span><output id="cutPosV"></output></span>
+        <input id="cutPos" type="range" min="0" max="1000" step="1" value="500"></label>
+      <label class="select-row"><span>Следить за цилиндром</span><select id="watch"></select></label>
+      <div class="toggles">
+        <label><input type="checkbox" id="xray"><span>Рентген корпуса</span></label>
+        <label><input type="checkbox" id="flow" checked><span>Поток газов</span></label>
+        <label><input type="checkbox" id="labelsOn" checked><span>Подписи</span></label>
+        <label><input type="checkbox" id="autorot"><span>Облёт камерой</span></label>
+      </div>
+      <label class="slider"><span class="row"><span>Разобрать</span><output id="explodeV"></output></span>
+        <input id="explode" type="range" min="0" max="100" step="1" value="0"></label>
+    </section>
+
+    <section>
+      <h3>Детали</h3>
+      <div class="toggles parts">
+        <label><input type="checkbox" data-group="cover" checked><span>Клапанная крышка</span></label>
+        <label><input type="checkbox" data-group="head" checked><span>Головка блока</span></label>
+        <label><input type="checkbox" data-group="block" checked><span>Блок цилиндров</span></label>
+        <label><input type="checkbox" data-group="manifolds" checked><span>Коллекторы</span></label>
+        <label><input type="checkbox" data-group="timing" checked><span>Ремень ГРМ</span></label>
+        <label><input type="checkbox" data-group="pan" checked><span>Поддон</span></label>
+        <label><input type="checkbox" data-group="stand" checked><span>Стенд</span></label>
+      </div>
+    </section>
+
+    <section>
+      <h3>Камера</h3>
+      <div class="views">
+        <button data-view="overview">Общий вид</button><button data-view="front">Спереди, ГРМ</button>
+        <button data-view="side">Сбоку</button><button data-view="cyl">В цилиндр</button>
+        <button data-view="top">Сверху</button><button data-view="valves">Клапаны</button>
+      </div>
+    </section>
+  </aside>
+
+  <div class="dock" role="toolbar" aria-label="Время">
+    <button id="back" class="icon" aria-label="Назад на 5°" title="Назад на 5°">−5°</button>
+    <button id="play" class="play" aria-label="Пауза">❚❚</button>
+    <button id="fwd" class="icon" aria-label="Вперёд на 5°" title="Вперёд на 5°">+5°</button>
+    <label class="slow"><span>Замедление <output id="slowV"></output></span>
+      <input id="slow" type="range" min="0" max="100" step="1" value="40"></label>
+    <div class="angle mono"><span id="angle">0°</span><small id="perRev">—</small></div>
+    <button id="soundBtn" class="icon wide" aria-pressed="false">Звук</button>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
