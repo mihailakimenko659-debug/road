@@ -81,10 +81,24 @@ button { cursor: pointer; }
 .chart { width: 100%; height: 130px; display: block; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 11px; margin-top: 4px; }
 .legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.c-torque { background: var(--cool); } .c-power { background: var(--accent); }
 .c-intake { background: var(--intake); } .c-compress { background: var(--compress); } .c-fire { background: var(--fire); } .c-exhaust { background: var(--exhaust); }
 .cyc-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin: 10px 0 4px; }
 .cycles { width: 100%; height: 78px; display: block; }
 .live { margin: 6px 0 0; color: var(--muted); font-size: 10.5px; }
+.sweep { border: 0; border-radius: 8px; padding: 5px 12px; background: var(--accent); color: #15110a; font-weight: 700; font-size: 12px; }
+.sweep:disabled { opacity: 0.55; }
+#engineSel { width: 100%; padding: 8px 10px; font-weight: 600; }
+.passport { display: grid; gap: 8px; font-size: 12px; }
+.passport .who { color: var(--muted); }
+.passport table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.passport td { padding: 3px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.passport td:first-child { color: var(--muted); padding-right: 8px; }
+.passport td:last-child { text-align: right; font-family: var(--mono); font-size: 11.5px; }
+.passport td b { color: var(--accent); font-weight: 600; }
+.passport td em { color: var(--cool); font-style: normal; }
+.passport ul { margin: 0; padding-left: 16px; display: grid; gap: 4px; color: #d3dae4; }
+.passport .note { color: var(--muted); font-size: 11px; }
 .mini { color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 5px; }
 
 /* ---------- панель ---------- */

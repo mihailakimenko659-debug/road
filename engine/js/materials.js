@@ -118,6 +118,15 @@ const crinkle = canvasTex(256, 256, (g, w, h) => {
 }, [5, 5], false);
 
 // зубья ремня ГРМ
+// цепь ГРМ: наружные и внутренние пластины со штифтами
+export const chainTex = canvasTex(64, 32, (g, w, h) => {
+  g.fillStyle = '#3a3d42'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#b9bec4'; g.beginPath(); g.roundRect(2, 5, 40, 22, 9); g.fill();
+  g.fillStyle = '#8e949b'; g.beginPath(); g.roundRect(34, 7, 30, 18, 8); g.fill();
+  g.fillStyle = '#e6e9ec'; for (const x of [12, 34]) { g.beginPath(); g.arc(x, 16, 4, 0, Math.PI * 2); g.fill(); }
+  noise(g, w, h, 10);
+}, [40, 1]);
+
 export const beltTex = canvasTex(64, 32, (g, w, h) => {
   g.fillStyle = '#1b1c1f'; g.fillRect(0, 0, w, h);
   g.fillStyle = '#2c2e33'; g.fillRect(0, 0, w * 0.42, h);
@@ -131,6 +140,8 @@ export const M = {
   iron: cutMat({ color: 0x55585c, metalness: 0.6, roughness: 0.55 }, 0x8c3a2a, { housing: true }),
   cover: cutMat({ color: 0xb3262c, metalness: 0.2, roughness: 0.5, bumpMap: crinkle, bumpScale: 1.4 }, 0xd8a24a, { housing: true }),
   pan: cutMat({ color: 0x2a2d31, metalness: 0.45, roughness: 0.5 }, 0xc9472d, { housing: true }),
+  blockIron: cutMat({ color: 0x6d7177, metalness: 0.45, roughness: 0.72, bumpMap: castBump, bumpScale: 1.1 }, 0xb04a32, { housing: true }),
+  chain: cutMat({ color: 0xffffff, map: null, metalness: 0.9, roughness: 0.32 }, 0xd8d0c0),
   steel: cutMat({ color: 0xc9ced4, metalness: 1, roughness: 0.28, roughnessMap: brushed }, 0xe8d3a0),
   forged: cutMat({ color: 0x8d9298, metalness: 0.95, roughness: 0.38 }, 0xe0b878),
   piston: cutMat({ color: 0xd6d8da, metalness: 0.7, roughness: 0.33 }, 0xf0b25a),

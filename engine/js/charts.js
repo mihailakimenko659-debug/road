@@ -127,3 +127,39 @@ function split(a0, a1) {
   const s = wrap720(a0), e = s + (a1 - a0);
   return e <= 720 ? [[s, e]] : [[s, 720], [0, e - 720]];
 }
+
+// Внешняя скоростная характеристика: момент и мощность по оборотам при полном газе
+export function drawDyno(canvas, curve, rated, cur, run) {
+  const { g, w, h } = setup(canvas);
+  const x0 = 34, x1 = w - 34, y0 = h - 20, y1 = 10;
+  const rMax = curve[curve.length - 1].rpm, rMin = 0;
+  const tMax = Math.max(...curve.map((c) => c.t), rated ? rated.torque : 0) * 1.3;
+  const pMax = Math.max(...curve.map((c) => c.p), rated ? rated.power : 0) * 1.18;
+  const X = (r) => x0 + (r - rMin) / (rMax - rMin) * (x1 - x0);
+  const YT = (t) => y0 - t / tMax * (y0 - y1), YP = (p) => y0 - p / pMax * (y0 - y1);
+  const step = rMax > 7000 ? 2000 : 1000;
+  const xt = []; for (let r = 0; r <= rMax; r += step) xt.push({ px: X(r), label: String(r / 1000) });
+  const yt = []; const sy = niceStep(tMax, 4); for (let t = 0; t <= tMax; t += sy) yt.push({ py: YT(t), label: t.toFixed(0) });
+  axes(g, x0, y0, x1, y1, xt, yt, 'тыс. об/мин', 'Н·м');
+  g.fillStyle = css('--accent'); g.textAlign = 'left'; g.font = '500 10px "JetBrains Mono", ui-monospace, monospace';
+  const sp = niceStep(pMax, 4); for (let p = 0; p <= pMax; p += sp) g.fillText(p.toFixed(0), x1 + 5, YP(p) + 3);
+  g.textAlign = 'right'; g.fillText('кВт', x1 + 30, y1 + 11);
+  const pts = run ? curve.filter((c) => c.rpm <= run.rpm) : curve;
+  for (const [key, Y, col] of [['t', YT, css('--cool')], ['p', YP, css('--accent')]]) {
+    g.strokeStyle = col; g.lineWidth = 2; g.globalAlpha = run ? 1 : 0.95; g.beginPath();
+    pts.forEach((c, i) => (i ? g.lineTo(X(c.rpm), Y(c[key])) : g.moveTo(X(c.rpm), Y(c[key]))));
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+  if (rated) {
+    const mark = (x, y, col, label, below) => {
+      g.strokeStyle = col; g.lineWidth = 1.5; g.fillStyle = css('--panel-solid') || '#1c2330';
+      g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = col; g.textAlign = 'center'; g.fillText(label, Math.min(x1 - 20, Math.max(x0 + 20, x)), y + (below ? 17 : -9));
+    };
+    // момент подписываем над точкой, мощность — под ней, чтобы не налезали
+    mark(X(rated.torqueRpm), YT(rated.torque), css('--cool'), `${rated.torque} Н·м`, false);
+    mark(X(rated.powerRpm), YP(rated.power), css('--accent'), `${rated.power} кВт`, true);
+  }
+  if (cur) { g.fillStyle = css('--fg'); g.beginPath(); g.arc(X(cur.rpm), YT(Math.max(0, cur.t)), 4, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(X(cur.rpm), YP(Math.max(0, cur.p)), 4, 0, Math.PI * 2); g.fill(); }
+}

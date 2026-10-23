@@ -5,7 +5,8 @@ import { computeCycle, bestAdvance, strokeOf, liftIn, liftEx, TIMING, wrap720 } 
 import { M, clipPlanes, applyClip, setXray } from './materials.js';
 import { buildLab } from './lab.js';
 import { Post } from './post.js';
-import { drawPV, drawPA, drawCycles } from './charts.js';
+import { drawPV, drawPA, drawCycles, drawDyno } from './charts.js';
+import { ENGINES, CUSTOM } from './engines.js';
 import { PARTS } from './parts.js';
 import { EngineSound } from './sound.js';
 
@@ -41,13 +42,21 @@ const post = new Post(renderer, scene, camera);
 
 // ---------------- состояние ----------------
 const state = {
+  engine: 'vaz21126', modified: false, curve: null, sweep: null,
   rpm: 2000, throttle: 0.6, advance: 20, vvt: 0,
   cylinders: 4, bore: 86, stroke: 86, cr: 10.5,
   cut: 'quarter', cutPos: 0.5, watch: 0, xray: false, flow: true, labels: true,
   explode: 0, slow: 40, playing: true,
   visible: { cover: true, head: true, block: true, manifolds: true, timing: true, pan: true, stand: true },
 };
-const geomParams = () => ({ cylinders: state.cylinders, bore: state.bore, stroke: state.stroke, cr: state.cr });
+const def = () => ENGINES[state.engine] || CUSTOM;
+const geomParams = () => {
+  const e = def();
+  // длину шатуна берём паспортную; если ход изменён — пропорционально
+  const rod = e.rod ? e.rod * state.stroke / e.stroke : undefined;
+  return { cylinders: state.cylinders, bore: state.bore, stroke: state.stroke, cr: state.cr, rod, look: e.look };
+};
+const physParams = () => ({ ...geomParams(), rod: engine.d.L, ve: def().ve, fric: def().fric });
 const slowFactor = () => Math.pow(10, -3 + 3 * state.slow / 100);
 
 let engine = null, cyc = null, theta = 30, heat = 0;
@@ -64,11 +73,14 @@ function rebuild() {
   recompute();
   buildCallouts();
   $('order').textContent = 'порядок ' + LAYOUTS[engine.d.n].order;
+  computeCurve();
+  renderPassport();
 }
 
 function recompute() {
-  const p = { ...geomParams(), rod: engine.d.L, rpm: state.rpm, throttle: state.throttle, advance: state.advance, vvt: state.vvt };
+  const p = { ...physParams(), rpm: state.rpm, throttle: state.throttle, advance: state.advance, vvt: state.vvt };
   cyc = computeCycle(p);
+  if (state.sweep) return;
   clearTimeout(recompute.t);
   recompute.t = setTimeout(() => {
     const b = bestAdvance(p);
@@ -76,6 +88,90 @@ function recompute() {
     $('setBest').dataset.v = b;
   }, 120);
 }
+
+
+// ---------------- внешняя характеристика (как на тормозном стенде) ----------------
+function bestAt(p, rpm) {
+  let bt = -1e9, ba = 4;
+  for (let a = 4; a <= 40; a += 3) { const c = computeCycle({ ...p, rpm, advance: a }); if (!c.knock && c.torque > bt) { bt = c.torque; ba = a; } }
+  return ba;
+}
+function computeCurve() {
+  clearTimeout(computeCurve.t);
+  computeCurve.t = setTimeout(() => {
+    const e = def(), p = { ...physParams(), throttle: 1, vvt: state.vvt };
+    const pts = [];
+    for (let rpm = 1000; rpm <= e.redline + 1; rpm += 200) {
+      const adv = bestAt(p, rpm);
+      const c = computeCycle({ ...p, rpm, advance: adv });
+      pts.push({ rpm, t: c.torque, p: c.power / 1000, adv });
+    }
+    state.curve = pts;
+    renderPassport();
+  }, 60);
+}
+const peakOf = (pts, k) => pts.reduce((b, c) => (c[k] > b[k] ? c : b), pts[0]);
+
+function renderPassport() {
+  const e = def(), el = $('passport');
+  const L = (state.cylinders * Math.PI * state.bore ** 2 / 4 * state.stroke / 1e6);
+  const hp = (kw) => fmt(kw / 0.7355);
+  let rows = `<tr><td>Объём и цилиндры</td><td>${fmt(L, 2)} л · ${state.cylinders} цил.</td></tr>
+    <tr><td>Диаметр × ход</td><td>${fmt(state.bore, 1)} × ${fmt(state.stroke, 1)} мм</td></tr>
+    <tr><td>Степень сжатия</td><td>${fmt(state.cr, 1)} : 1</td></tr>`;
+  if (e.rated && !state.modified) rows += `<tr><td>Паспорт</td><td><b>${hp(e.rated.power)} л.с.</b> при ${fmt(e.rated.powerRpm)}<br><em>${e.rated.torque} Н·м</em> при ${fmt(e.rated.torqueRpm)}</td></tr>`;
+  if (state.curve) {
+    const pp = peakOf(state.curve, 'p'), pt = peakOf(state.curve, 't');
+    rows += `<tr><td>Модель на стенде</td><td><b>${hp(pp.p)} л.с.</b> при ${fmt(pp.rpm)}<br><em>${fmt(pt.t)} Н·м</em> при ${fmt(pt.rpm)}</td></tr>`;
+  }
+  const head = e.maker ? `<div class="who">${e.maker} · ${e.since}<br>${e.cars}</div>` : '';
+  const mod = state.modified && e.rated ? '<div class="note">Конструкция изменена — паспорт этого мотора уже не подходит.</div>' : '';
+  el.innerHTML = `${head}<table>${rows}</table>${mod}<ul>${e.facts.map((f) => `<li>${f}</li>`).join('')}</ul>`;
+  $('kicker').textContent = `Стенд № 2 · ${state.modified ? 'на базе ' : ''}${e.name}`;
+}
+
+function setSlider(id, v, text) { const el = $(id); el.value = v; paintRange(el); const o = $(id + 'V'); if (o && text) o.textContent = text; }
+function selectEngine(id) {
+  state.engine = id; state.modified = false;
+  const e = def();
+  if (e.cylinders) { state.cylinders = e.cylinders; state.bore = e.bore; state.stroke = e.stroke; state.cr = e.cr; }
+  setSlider('bore', state.bore, `${fmt(state.bore, 1)} мм`); setSlider('stroke', state.stroke, `${fmt(state.stroke, 1)} мм`); setSlider('cr', state.cr, `${fmt(state.cr, 1)} : 1`);
+  $('cylinders').querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.v === state.cylinders));
+  $('rpm').max = e.redline + 200;
+  PRESETS.idle[0] = e.idle; PRESETS.red[0] = e.redline;
+  PRESETS.full[0] = e.rated ? e.rated.torqueRpm : 4500;
+  rebuild();
+  setCut(state.cut);
+  setRange('rpm', Math.min(+$('rpm').value, e.redline));
+}
+$('engineSel').addEventListener('change', (e) => selectEngine(e.target.value));
+const markModified = () => { if (!state.modified && def().rated) { state.modified = true; } };
+
+// прогон: плавно разгоняем мотор при полном газе от холостых до отсечки
+$('sweep').addEventListener('click', () => {
+  if (state.sweep) return;
+  const e = def();
+  state.sweep = { from: Math.max(1000, e.idle), to: e.redline, start: performance.now(), dur: 9000, saved: { rpm: state.rpm, throttle: state.throttle, advance: state.advance } };
+  $('sweep').disabled = true; $('sweep').textContent = 'Идёт прогон…';
+  clearPreset();
+});
+function stepSweep() {
+  const sw = state.sweep; if (!sw) return;
+  const k = Math.min(1, (performance.now() - sw.start) / sw.dur);
+  const rpm = Math.round(sw.from + (sw.to - sw.from) * k);
+  const pt = state.curve ? state.curve.reduce((b, c) => (Math.abs(c.rpm - rpm) < Math.abs(b.rpm - rpm) ? c : b), state.curve[0]) : null;
+  state.rpm = rpm; state.throttle = 1; if (pt) state.advance = pt.adv;
+  setSlider('rpm', rpm, `${fmt(rpm)} об/мин`); setSlider('throttle', 100, '100 %'); setSlider('advance', state.advance, `${state.advance}° до ВМТ`);
+  sw.rpm = rpm;
+  recompute();
+  if (k >= 1) {
+    state.sweep = null;
+    $('sweep').disabled = false; $('sweep').textContent = 'Прогон';
+    setRange('rpm', sw.saved.rpm); setRange('throttle', Math.round(sw.saved.throttle * 100)); setRange('advance', sw.saved.advance);
+    lastRun = sw;
+  }
+}
+let lastRun = null;
 
 // ---------------- разрез ----------------
 function updateClip() {
@@ -151,7 +247,7 @@ function buildCallouts() {
     { key: 'plug', group: 'head', inner: true, side: 1, dy: -20, at: () => V(w().x, d.H0 + d.hd + 20, 0) },
     { key: 'throttle', group: 'intake', side: -1, dy: -30, at: () => V((d.Lb / 2 - 30) + 32, d.H0 + 60, -(d.Wh / 2 + 95)) },
     { key: 'exhaust', group: 'exhaust', side: 1, dy: 20, at: () => V(d.xs[Math.min(1, d.n - 1)], d.H0 + 20, d.Wh / 2 + 52) },
-    { key: 'belt', group: 'timing', side: -1, dy: 10, at: () => V(d.xBelt - 12, (d.vIn.cam.y + d.vEx.cam.y) * 0.3, d.vEx.cam.z + 40) },
+    { key: engine.look.timing === 'chain' ? 'chain' : 'belt', group: 'timing', side: -1, dy: 10, at: () => V(d.xBelt - 12, (d.vIn.cam.y + d.vEx.cam.y) * 0.3, d.vEx.cam.z + 40) },
     { key: 'flywheel', group: 'crank', side: 1, dy: 30, at: () => V(d.xRear + 30, d.B * 1.0, d.B * 0.95) },
     { key: 'gas', group: 'gas', inner: true, cutOnly: true, side: 1, dy: 60, at: () => V(w().x, (w().crown + d.H0) / 2, -d.R * 0.4) },
   ];
@@ -180,7 +276,7 @@ function calloutText(key) {
     case 'plug': return c.spark ? `${em('искра!')} ≈ 25 кВ` : `зажигает за ${em(state.advance + '°')} до ВМТ`;
     case 'throttle': return `открыта на ${em(fmt(state.throttle * 100) + ' %')} · ${em(fmt(cyc.pMan / 1000) + ' кПа')}`;
     case 'exhaust': return `газы ${em(fmt(cyc.T[600] - 273) + ' °C')} · ${em(fmt(cyc.fuelFlow * 15.7 * 1000, 0) + ' г/с')}`;
-    case 'belt': return `${em(fmt(0.3 * d.B / 1000 * om, 1) + ' м/с')} · распредвалы вдвое медленнее`;
+    case 'belt': case 'chain': return `${em(fmt(0.3 * d.B / 1000 * om, 1) + ' м/с')} · распредвалы вдвое медленнее`;
     case 'flywheel': return `запас ${em(fmt(0.5 * 0.13 * om * om / 1000, 1) + ' кДж')}`;
     case 'gas': return `${em(fmt(cyc.P[a] / 1e5, 1) + ' бар')} · ${em(fmt(cyc.T[a] - 273) + ' °C')} · ${em(fmt(cyc.V[a] * 1e6) + ' см³')}`;
     default: return '';
@@ -283,6 +379,8 @@ function view(name) {
     front: [V(-11.5, 2.6, 1.6), V(-1.5, 1.0, 0)],
     side: [V(0.4, 2.0, 13.5), V(0, 0.8, 0)],
     top: [V(0.01, 13, 1.4), V(0, 1.4, 0)],
+    dyno: [V((d.xRear + 120) * s + 4.5, 2.6, 8.5), V((d.xRear + 330) * s, -0.6, 0)],
+    rear: [V((d.xRear * s) + 10, 3.2, -6.5), V(1.5, 0.4, 0)],
     cyl: [V(xw - 8.8, d.H0 * s + 1.3, 5.2), V(xw, (d.deck - d.S * 0.9) * s, -0.2)],
     valves: [V(xw - 6.6, d.H1 * s + 2.6, 3.8), V(xw, (d.H0 + 55) * s, -0.2)],
   };
@@ -306,10 +404,10 @@ const clearPreset = () => $('preset').querySelectorAll('button').forEach((b) => 
 bindRange('rpm', (v) => { state.rpm = v; engine && recompute(); }, (v) => `${fmt(v)} об/мин`);
 bindRange('throttle', (v) => { state.throttle = v / 100; engine && recompute(); }, (v) => `${v} %`);
 bindRange('advance', (v) => { state.advance = v; engine && recompute(); }, (v) => `${v}° до ВМТ`);
-bindRange('vvt', (v) => { state.vvt = v; engine && recompute(); }, (v) => (v === 0 ? 'штатно' : `${v > 0 ? 'раньше' : 'позже'} на ${Math.abs(v)}°`));
-bindRange('bore', (v) => { state.bore = v; engine && scheduleRebuild(); }, (v) => `${v} мм`);
-bindRange('stroke', (v) => { state.stroke = v; engine && scheduleRebuild(); }, (v) => `${v} мм`);
-bindRange('cr', (v) => { state.cr = v; engine && scheduleRebuild(); }, (v) => `${fmt(v, 1)} : 1`);
+bindRange('vvt', (v) => { state.vvt = v; if (engine) { recompute(); computeCurve(); } }, (v) => (v === 0 ? 'штатно' : `${v > 0 ? 'раньше' : 'позже'} на ${Math.abs(v)}°`));
+bindRange('bore', (v) => { state.bore = v; if (engine) { markModified(); scheduleRebuild(); } }, (v) => `${fmt(v, 1)} мм`);
+bindRange('stroke', (v) => { state.stroke = v; if (engine) { markModified(); scheduleRebuild(); } }, (v) => `${fmt(v, 1)} мм`);
+bindRange('cr', (v) => { state.cr = v; if (engine) { markModified(); scheduleRebuild(); } }, (v) => `${fmt(v, 1)} : 1`);
 bindRange('explode', (v) => { state.explode = v / 100; if (engine) { engine.setExplode(state.explode); applyVisibility(); } }, (v) => (v ? `${v} %` : 'собран'));
 bindRange('cutPos', (v) => { state.cutPos = v / 1000; updateClip(); });
 bindRange('slow', (v) => { state.slow = v; }, () => { const f = slowFactor(); return f >= 0.999 ? 'нет' : `в ${fmt(1 / f)} раз`; });
@@ -327,7 +425,7 @@ function segGroup(id, fn) {
 }
 const PRESETS = { idle: [800, 8, 12], city: [2000, 35, 24], full: [5200, 100, 28], red: [6800, 100, 30] };
 segGroup('preset', (v) => { const [r, t, a] = PRESETS[v]; setRange('rpm', r); setRange('throttle', t); setRange('advance', a); $('preset').querySelector(`[data-v="${v}"]`).classList.add('on'); });
-segGroup('cylinders', (v) => { state.cylinders = +v; state.watch = 0; rebuild(); setCut(state.cut); });
+segGroup('cylinders', (v) => { state.cylinders = +v; state.watch = 0; markModified(); rebuild(); setCut(state.cut); });
 function setCut(v) {
   state.cut = v;
   $('cut').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === v));
@@ -358,6 +456,8 @@ document.querySelectorAll('[data-chart]').forEach((el) => el.addEventListener('c
   chartMode = el.dataset.chart;
   document.querySelectorAll('[data-chart]').forEach((x) => x.classList.toggle('on', x === el));
   $('logScale').parentElement.hidden = chartMode !== 'pv';
+  $('sweep').hidden = chartMode !== 'dyno';
+  $('legendCycle').hidden = chartMode === 'dyno'; $('legendDyno').hidden = chartMode !== 'dyno';
 }));
 $('play').addEventListener('click', () => {
   state.playing = !state.playing;
@@ -420,6 +520,7 @@ const camLocal = new THREE.Vector3();
 function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   time += dt;
+  stepSweep();
   let dTheta = 0;
   if (state.playing) { dTheta = state.rpm / 60 * 360 * dt * slowFactor(); theta += dTheta; }
   if (tween) {
@@ -484,13 +585,14 @@ function updateUI() {
   $('perRev').textContent = revSec >= 1 ? `оборот за ${fmt(revSec, 1)} с` : `${fmt(1 / revSec, revSec > 0.1 ? 1 : 0)} об/с на экране`;
   if (!$('gauges').classList.contains('collapsed') && $('gauges').getClientRects().length) {
     if (chartMode === 'pv') drawPV($('chart'), cyc, c.alpha, $('logScale').checked);
-    else drawPA($('chart'), cyc, c.alpha, state.vvt);
+    else if (chartMode === 'pa') drawPA($('chart'), cyc, c.alpha, state.vvt);
+    else if (state.curve) drawDyno($('chart'), state.curve, state.modified ? null : def().rated, { rpm: state.rpm, t: cyc.torque, p: cyc.power / 1000 }, state.sweep);
     drawCycles($('cycles'), engine, state.watch);
   }
 }
 
 if (window.innerWidth < 700) { state.labels = false; $('labelsOn').checked = false; post.enabled = false; $('hq').checked = false; }
 window.lab = { state, view, get theta() { return theta; }, set theta(v) { theta = v; } };
-rebuild();
+selectEngine(state.engine);
 setCut('quarter');
 requestAnimationFrame(frame);

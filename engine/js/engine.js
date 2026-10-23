@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { M, cutMat, tubeMat, beltTex, clipState, onClipChange } from './materials.js';
+import { M, cutMat, tubeMat, beltTex, chainTex, clipState, onClipChange } from './materials.js';
 import { TIMING, liftIn, liftEx, wrap720 } from './thermo.js';
 import { addDetails } from './details.js';
 
@@ -19,7 +19,7 @@ const D2R = Math.PI / 180;
 // ---------- размеры ----------
 export function dims(p) {
   const B = p.bore, S = p.stroke, r = S / 2, n = p.cylinders;
-  const L = Math.round(1.62 * S);
+  const L = p.rod || Math.round(1.62 * S);
   const R = B / 2;
   const pitch = B + 12;
   const ch = 0.34 * B;
@@ -201,6 +201,12 @@ onClipChange((planes, inter) => { for (const m of shaderMats) { m.clippingPlanes
 export class Engine {
   constructor(params) {
     this.p = { ...params };
+    this.look = params.look || { block: 'alu', cover: 0xb3262c, coverRough: 0.5, label: ['DOHC', '', ''], intake: 'alu', timing: 'belt' };
+    // цвета и фактура — под выбранный мотор
+    M.cover.color.setHex(this.look.cover); M.cover.roughness = this.look.coverRough;
+    const plastic = this.look.intake === 'plastic';
+    M.plenum.color.setHex(plastic ? 0x24262a : 0x9ea4aa); M.plenum.metalness = plastic ? 0.05 : 0.7; M.plenum.roughness = plastic ? 0.7 : 0.38;
+    M.intake.color.setHex(plastic ? 0x2a2c30 : 0xa3a9af); M.intake.metalness = plastic ? 0.05 : 0.7; M.intake.roughness = plastic ? 0.68 : 0.4;
     this.layout = LAYOUTS[params.cylinders];
     const d = this.d = dims(params);
     this.root = new THREE.Group();
@@ -227,22 +233,23 @@ export class Engine {
   // ---------------- блок цилиндров ----------------
   buildBlock() {
     const d = this.d, { B, R, Lb, Wb, xs, pitch } = d;
+    const bm = this.look.block === 'iron' ? M.blockIron : M.aluminum;
     const jacketLen = (d.n - 1) * pitch + B + 22, jacketW = B + 22;
     // верх блока с рубашкой
     const top = roundRect(Lb, Wb, 14);
     top.holes.push(holeFrom(roundRect(jacketLen, jacketW, 30)));
-    this.add('block', mesh(extrudeXZ(top, d.yLiner0 + 12, d.deck), M.aluminum, 'block'));
+    this.add('block', mesh(extrudeXZ(top, d.yLiner0 + 12, d.deck), bm, 'block'));
     // дно рубашки
     const floor = roundRect(Lb, Wb, 14);
     xs.forEach((x) => floor.holes.push(circlePath(x, 0, R + 4)));
-    this.add('block', mesh(extrudeXZ(floor, d.yLiner0, d.yLiner0 + 12), M.aluminum, 'block'));
+    this.add('block', mesh(extrudeXZ(floor, d.yLiner0, d.yLiner0 + 12), bm, 'block'));
     // картер
     const cc = roundRect(Lb, Wb, 14);
     cc.holes.push(holeFrom(roundRect(Lb - 24, Wb - 20, 10)));
-    this.add('block', mesh(extrudeXZ(cc, d.yLow, d.yLiner0), M.aluminum, 'block'));
+    this.add('block', mesh(extrudeXZ(cc, d.yLow, d.yLiner0), bm, 'block'));
     // рёбра жёсткости снаружи картера
     for (const x of xs) for (const s of [-1, 1]) {
-      const rib = mesh(new THREE.BoxGeometry(8, d.yLiner0 - d.yLow + 20, 8), M.aluminum, 'block');
+      const rib = mesh(new THREE.BoxGeometry(8, d.yLiner0 - d.yLow + 20, 8), bm, 'block');
       rib.position.set(x, (d.yLiner0 + d.yLow) / 2 + 10, s * (Wb / 2 + 3));
       this.add('block', rib);
     }
@@ -265,7 +272,7 @@ export class Engine {
       const w = Wb / 2 - 10;
       s.moveTo(-w, d.yLow); s.lineTo(w, d.yLow); s.lineTo(w, d.yLiner0 + 2); s.lineTo(-w, d.yLiner0 + 2); s.closePath();
       s.holes.push(circlePath(0, 0, d.mainR + 2.5));
-      const bh = mesh(extrudeYZ(s, 17), M.aluminum, 'bulkhead');
+      const bh = mesh(extrudeYZ(s, 17), bm, 'bulkhead');
       bh.position.x = x;
       this.add('block', bh);
       for (const z of [-1, 1]) {
@@ -612,14 +619,15 @@ export class Engine {
       { c: new THREE.Vector2(vIn.cam.z, vIn.cam.y), r: rcs, key: 'in' },
       { c: new THREE.Vector2((vIn.cam.z - rcs - rc) * 0.5 + 0.2 * B, camY * 0.5), r: 0.18 * B, key: 'idler' },
     ];
-    const W = 24, T = 4.2;
+    const chain = this.look.timing === 'chain';
+    const W = chain ? 16 : 24, T = chain ? 7 : 4.2;
     this.timingPath = beltPath(circles);
     const { geo: bg, len: s } = beltGeometry(this.timingPath, xBelt, W, T);
     this.beltLen = s;
-    const tex = beltTex.clone(); tex.needsUpdate = true; tex.repeat.set(1, 1);
+    const tex = (chain ? chainTex : beltTex).clone(); tex.needsUpdate = true; tex.repeat.set(1, 1);
     this.beltTex = tex;
-    const bm = cutMat({ color: 0xffffff, map: tex, roughness: 0.82, metalness: 0 }, 0x444444);
-    this.add('timing', mesh(bg, bm, 'belt'));
+    const bm = chain ? cutMat({ color: 0xffffff, map: tex, roughness: 0.32, metalness: 0.9 }, 0xd8d0c0) : cutMat({ color: 0xffffff, map: tex, roughness: 0.82, metalness: 0 }, 0x444444);
+    this.add('timing', mesh(bg, bm, chain ? 'chain' : 'belt'));
     // шкивы
     const gear = (rad, teeth, part) => {
       const g = new THREE.Group();

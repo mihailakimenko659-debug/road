@@ -22,7 +22,7 @@
   <div id="tip" class="tip" hidden></div>
 
   <header class="hero">
-    <p class="kicker">Лаборатория ДВС · стенд № 2</p>
+    <p class="kicker" id="kicker">Лаборатория ДВС · стенд № 2</p>
     <h1>Четыре<br>такта</h1>
     <p class="lead">Рядный бензиновый двигатель на стенде. За два оборота вала в каждом цилиндре — впуск, сжатие, вспышка и выпуск.</p>
     <div class="tiles">
@@ -53,12 +53,15 @@
       <div class="chart-head">
         <div class="seg small" role="tablist" aria-label="График">
           <button data-chart="pv" class="on" role="tab">p–V</button>
-          <button data-chart="pa" role="tab">p–φ и клапаны</button>
+          <button data-chart="pa" role="tab">p–φ</button>
+          <button data-chart="dyno" role="tab">Стенд</button>
         </div>
         <label class="mini"><input id="logScale" type="checkbox"> лог.</label>
+        <button id="sweep" class="sweep" hidden>Прогон</button>
       </div>
       <canvas id="chart" class="chart"></canvas>
-      <div class="legend"><span><i class="c-intake"></i>впуск</span><span><i class="c-compress"></i>сжатие</span><span><i class="c-fire"></i>рабочий ход</span><span><i class="c-exhaust"></i>выпуск</span></div>
+      <div class="legend" id="legendCycle"><span><i class="c-intake"></i>впуск</span><span><i class="c-compress"></i>сжатие</span><span><i class="c-fire"></i>рабочий ход</span><span><i class="c-exhaust"></i>выпуск</span></div>
+      <div class="legend" id="legendDyno" hidden><span><i class="c-torque"></i>момент, Н·м</span><span><i class="c-power"></i>мощность, кВт</span><span>○ паспорт · ● сейчас</span></div>
       <div class="cyc-head"><span>Такты по цилиндрам</span><span id="order" class="mono">—</span></div>
       <canvas id="cycles" class="cycles"></canvas>
       <p id="live" class="live mono">—</p>
@@ -68,6 +71,19 @@
   <button id="toggleControls" class="fab" aria-expanded="false" aria-controls="controls">Настройки</button>
 
   <aside id="controls" class="panel">
+    <section>
+      <h3>Двигатель на стенде</h3>
+      <select id="engineSel" aria-label="Двигатель">
+        <option value="vaz21126">ВАЗ-21126 · 1,6 л · Lada Priora</option>
+        <option value="k20a">Honda K20A · 2,0 л · Type R</option>
+        <option value="skyactiv">Mazda Skyactiv-G 2.0 · ε 14</option>
+        <option value="m54b30">BMW M54B30 · 3,0 л · рядная 6</option>
+        <option value="k1kr">Toyota 1KR-FE · 1,0 л · 3 цил.</option>
+        <option value="custom">Свой двигатель</option>
+      </select>
+      <div id="passport" class="passport"></div>
+    </section>
+
     <section>
       <h3>Режим</h3>
       <div id="preset" class="seg" role="radiogroup" aria-label="Режим работы">
@@ -137,6 +153,7 @@
         <button data-view="overview">Общий вид</button><button data-view="front">Спереди, ГРМ</button>
         <button data-view="side">Сбоку</button><button data-view="cyl">В цилиндр</button>
         <button data-view="top">Сверху</button><button data-view="valves">Клапаны</button>
+        <button data-view="dyno">Тормозной стенд</button><button data-view="rear">Сзади</button>
       </div>
     </section>
   </aside>

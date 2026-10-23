@@ -4,6 +4,7 @@ import { lathe, cyl, mesh, curve, extrudeXZ, roundRect, beltPath, beltGeometry, 
 import { TIMING, liftIn, liftEx } from './thermo.js';
 
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+function box(parent, w, h, dd, mat, x, y, z) { const m = mesh(new THREE.BoxGeometry(w, h, dd), mat, 'dyno'); m.position.set(x, y, z); parent.add(m); return m; }
 const plain = (opts) => { const m = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, ...opts }); m.clippingPlanes = clipState.planes; clipped.push(m); return m; };
 const clipped = [];
 onClipChange((planes, inter) => { for (const m of clipped) { m.clippingPlanes = planes; m.clipIntersection = inter; m.needsUpdate = true; } });
@@ -165,14 +166,72 @@ export function addDetails(e) {
   cat.position.set(xD, FLOOR_Y + 84, zC); e.add('exhaust', cat);
   const shield = mesh(lathe([[0.48 * B, 30], [0.5 * B, 30], [0.5 * B, 146], [0.48 * B, 146]], 40, ), cutMat({ color: 0xc9ced4, metalness: 0.9, roughness: 0.35 }, 0xe8d3a0), 'exhaust');
   shield.position.copy(cat.position); e.add('exhaust', shield);
-  const tail = [V3(xD, FLOOR_Y + 86, zC), V3(xD, FLOOR_Y + 50, zC), V3(xD + 60, FLOOR_Y + 40, zC), V3(xD + 220, FLOOR_Y + 46, zC + 10)];
+  // хвост уходит вбок, в сторону от тормоза стенда
+  const tail = [V3(xD, FLOOR_Y + 86, zC), V3(xD, FLOOR_Y + 72, zC + 6), V3(xD + 20, FLOOR_Y + 68, zC + 60), V3(xD + 40, FLOOR_Y + 74, zC + 230)];
   e.add('exhaust', mesh(new THREE.TubeGeometry(curve(tail), 50, 0.2 * B, 22, false), M.exhaust, 'exhaust'));
   const tip = mesh(lathe([[0.2 * B, -12], [0.24 * B, -12], [0.24 * B, 14], [0.21 * B, 14]], 28), M.steel, 'exhaust');
-  tip.rotation.z = -Math.PI / 2 + 0.04; tip.position.set(xD + 220, FLOOR_Y + 46, zC + 10); e.add('exhaust', tip);
-  out.smoke = new Smoke(V3(xD + 236, FLOOR_Y + 47, zC + 10), V3(1, 0.05, 0.04));
+  tip.rotation.x = Math.PI / 2; tip.position.set(xD + 40, FLOOR_Y + 74, zC + 232); e.add('exhaust', tip);
+  out.smoke = new Smoke(V3(xD + 41, FLOOR_Y + 75, zC + 248), V3(0.06, 0.05, 1));
   e.groups.exhaust.add(out.smoke.points);
-  out.exOut = new Chevrons([V3(xD + 240, FLOOR_Y + 46, zC + 10), V3(xD + 330, FLOOR_Y + 54, zC + 14), V3(xD + 430, FLOOR_Y + 70, zC + 18)], V3(0, 0, 1), { count: 5, size: 22, color: 0xffc48a, billboard: true });
+  out.exOut = new Chevrons([V3(xD + 41, FLOOR_Y + 75, zC + 252), V3(xD + 46, FLOOR_Y + 84, zC + 350), V3(xD + 52, FLOOR_Y + 100, zC + 450)], V3(0, 1, 0), { count: 5, size: 22, color: 0xffc48a, billboard: true });
   e.groups.exhaust.add(out.exOut.mesh);
+
+
+  // --- тормозной стенд: карданный вал и динамометр ---
+  {
+    const st = e.groups.stand;
+    const x0 = xRear + 42, x1 = xRear + 330, xb = xRear + 480;
+    const shaft = new THREE.Group();
+    const steel = M.steel, dark = M.standDark;
+    const flange = (x, r) => { const f = mesh(cyl(r, 10, 'x', 32), steel, 'shaft'); f.position.x = x; shaft.add(f); for (let k = 0; k < 6; k++) { const b = mesh(cyl(3.5, 14, 'x', 8), dark, 'shaft'); const a = k * Math.PI / 3; b.position.set(x, r * 0.7 * Math.cos(a), r * 0.7 * Math.sin(a)); shaft.add(b); } };
+    flange(x0, 46); flange(x1, 46);
+    const tube = mesh(cyl(20, x1 - x0 - 90, 'x', 28), steel, 'shaft'); tube.position.x = (x0 + x1) / 2; shaft.add(tube);
+    // шарниры (вилки и крестовины)
+    for (const [xj, sgn] of [[x0 + 30, 1], [x1 - 30, -1]]) {
+      for (const k of [0, 1]) {
+        const yoke = mesh(new THREE.BoxGeometry(26, 14, 54), steel, 'shaft');
+        yoke.position.x = xj + (k ? 14 : -14) * sgn; if (k) yoke.rotation.x = Math.PI / 2; shaft.add(yoke);
+      }
+      const cross = mesh(cyl(7, 60, 'y', 12), dark, 'shaft'); cross.position.x = xj; shaft.add(cross);
+      const cross2 = mesh(cyl(7, 60, 'z', 12), dark, 'shaft'); cross2.position.x = xj; shaft.add(cross2);
+    }
+    st.add(shaft);
+    out.shaft = shaft;
+    // защитный кожух из сетки
+    const grid = document.createElement('canvas'); grid.width = grid.height = 64;
+    const gg = grid.getContext('2d'); gg.strokeStyle = '#fff'; gg.lineWidth = 6; gg.strokeRect(0, 0, 64, 64);
+    const gt = new THREE.CanvasTexture(grid); gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(26, 7);
+    const guard = mesh(new THREE.CylinderGeometry(95, 95, x1 - x0 + 20, 48, 1, true, -Math.PI * 0.15, Math.PI * 1.3), new THREE.MeshStandardMaterial({ color: 0xf0a43a, metalness: 0.4, roughness: 0.5, alphaMap: gt, transparent: true, side: THREE.DoubleSide, depthWrite: false }), 'shaft', false);
+    guard.rotation.z = Math.PI / 2; guard.position.set((x0 + x1) / 2, 0, 0); st.add(guard);
+    for (const x of [x0 + 10, x1 - 10]) { const ring = mesh(new THREE.TorusGeometry(95, 4, 8, 48), new THREE.MeshStandardMaterial({ color: 0xf0a43a, metalness: 0.4, roughness: 0.5 }), 'shaft'); ring.rotation.y = Math.PI / 2; ring.position.x = x; st.add(ring); }
+    // тормоз: корпус с рёбрами на балансирных опорах
+    const paint = new THREE.MeshStandardMaterial({ color: 0x2f5f86, metalness: 0.35, roughness: 0.42 });
+    const body = new THREE.Group();
+    body.add(mesh(lathe([[0, -150], [150, -150], [172, -128], [172, 128], [150, 150], [0, 150]], 56), paint, 'dyno'));
+    for (let k = -5; k <= 5; k++) { const fin = mesh(lathe([[170, k * 22 - 4], [186, k * 22 - 3], [186, k * 22 + 3], [170, k * 22 + 4]], 56), paint, 'dyno'); body.add(fin); }
+    const shaftIn = mesh(cyl(32, 60, 'y', 28), steel, 'dyno'); shaftIn.position.y = -170; body.add(shaftIn);
+    body.rotation.z = Math.PI / 2; body.position.set(xb, 0, 0);
+    st.add(body);
+    const plateC = document.createElement('canvas'); plateC.width = 512; plateC.height = 128;
+    const pg = plateC.getContext('2d'); pg.fillStyle = '#eef1f4'; pg.fillRect(0, 0, 512, 128);
+    pg.fillStyle = '#16191d'; pg.font = '700 44px Montserrat, Manrope, sans-serif'; pg.fillText('ТОРМОЗНОЙ СТЕНД', 24, 60);
+    pg.font = '500 30px "JetBrains Mono", monospace'; pg.fillStyle = '#4b5664'; pg.fillText('вихретоковый · до 400 Н·м', 24, 104);
+    const pt = new THREE.CanvasTexture(plateC); pt.colorSpace = THREE.SRGBColorSpace;
+    const plate2 = new THREE.Mesh(new THREE.PlaneGeometry(180, 45), new THREE.MeshStandardMaterial({ map: pt, roughness: 0.4 }));
+    plate2.position.set(xb, 40, 189); plate2.userData.part = 'dyno'; st.add(plate2);
+    // опоры, рама, рычаг с датчиком силы
+    for (const x of [xb - 170, xb + 170]) {
+      const ped = mesh(new THREE.BoxGeometry(40, -FLOOR_Y - 40, 120), paint, 'dyno'); ped.position.set(x, (FLOOR_Y + 40) / 2 - 20, 0); st.add(ped);
+      const brg = mesh(cyl(40, 50, 'x', 28), dark, 'dyno'); brg.position.set(x, 0, 0); st.add(brg);
+    }
+    box(st, 520, 40, 300, dark, xb, FLOOR_Y + 20, 0);
+    const arm = mesh(new THREE.BoxGeometry(24, 16, 260), steel, 'dyno'); arm.position.set(xb + 60, -60, -260); st.add(arm);
+    const cell = mesh(cyl(16, 46, 'y', 20), M.brass, 'dyno'); cell.position.set(xb + 60, -100, -380); st.add(cell);
+    const cellPost = mesh(new THREE.BoxGeometry(40, -FLOOR_Y - 120, 40), paint, 'dyno'); cellPost.position.set(xb + 60, (FLOOR_Y - 120) / 2 - 20, -380); st.add(cellPost);
+    // вода для охлаждения тормоза
+    const hm = plain({ color: 0x1f2023, roughness: 0.65 });
+    for (const dz of [-60, 60]) e.add('stand', mesh(new THREE.TubeGeometry(curve([V3(xb + 120, 140, dz), V3(xb + 160, 230, dz), V3(xb + 300, 120, dz * 1.5), V3(xb + 320, FLOOR_Y + 30, dz * 2)]), 40, 12, 12, false), hm, 'dyno'));
+  }
 
   // --- клапанная крышка: рёбра, болты, шильдик ---
   for (const z of [0.3 * Wh, 0.38 * Wh]) { const rib = mesh(new THREE.BoxGeometry(Lb - 90, 6, 5), M.cover, 'cover'); rib.position.set(0, top + 2, z); e.add('cover', rib); }
@@ -183,11 +242,12 @@ export function addDetails(e) {
   const label = document.createElement('canvas'); label.width = 512; label.height = 96;
   const g = label.getContext('2d');
   g.fillStyle = '#e9ecef'; g.fillRect(0, 0, 512, 96);
-  g.fillStyle = '#141619'; g.font = '700 54px Montserrat, Manrope, sans-serif'; g.fillText('DOHC', 26, 68);
-  g.fillStyle = '#c9472d'; g.fillText(`${n * 4}V`, 210, 68);
-  g.fillStyle = '#141619'; g.font = '600 34px "JetBrains Mono", monospace';
+  const [l0, l1, l2] = e.look.label;
   const litres = (n * Math.PI * B * B / 4 * d.S / 1e6).toFixed(1).replace('.', ',');
-  g.fillText(`${litres} л`, 360, 64);
+  g.font = '800 50px Montserrat, Manrope, sans-serif'; g.fillStyle = '#141619'; g.fillText(l0, 24, 66);
+  let lx = 24 + g.measureText(l0).width + 10;
+  g.fillStyle = '#c9472d'; g.fillText(l1 || `${n * 4}V`, lx, 66); lx += g.measureText(l1 || `${n * 4}V`).width + 18;
+  g.fillStyle = '#141619'; g.font = '600 32px "JetBrains Mono", monospace'; g.fillText(l2 || `${litres} л`, Math.min(lx, 400), 64);
   const lt = new THREE.CanvasTexture(label); lt.colorSpace = THREE.SRGBColorSpace; lt.anisotropy = 8;
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(200, Lb * 0.45), Math.min(200, Lb * 0.45) * 96 / 512), new THREE.MeshStandardMaterial({ map: lt, roughness: 0.35, metalness: 0.3 }));
   plate.rotation.x = -Math.PI / 2; plate.position.set(0, top + 0.6, -0.34 * Wh); plate.userData.part = 'cover';
@@ -262,6 +322,7 @@ export function addDetails(e) {
   out.update = (s, th, dTheta) => {
     const dRad = dTheta * Math.PI / 180;
     out.accTex.offset.x = (0.78 * B * th) / 9.525;
+    out.shaft.rotation.x = th;
     const load = 0.3 + 0.7 * s.throttle;
     const cam = s.cam;
     out.airIn.update(dTheta * 0.9 * load * n / 4, 1, cam);

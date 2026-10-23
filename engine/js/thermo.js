@@ -64,8 +64,10 @@ export function computeCycle(p) {
   // Давление во впускном коллекторе определяется дросселем
   const pMan = (0.26 + 0.74 * Math.pow(p.throttle, 0.85)) * 1e5;
   // Наполнение: лучше всего около 4500 об/мин, впускной распредвал его сдвигает
-  const vvtPeak = 4.5 + p.vvt * 0.06;
-  const etaV = clamp(0.94 - 0.011 * (rpmK - vvtPeak) ** 2 - Math.abs(p.vvt) * 0.0015, 0.5, 0.96);
+  // ve — наполнение конкретного мотора (подобрано под паспортные момент и мощность)
+  const ve = p.ve || { max: 0.94, peak: 4.5, k: 0.011 };
+  const vvtPeak = ve.peak + p.vvt * 0.06;
+  const etaV = clamp(ve.max - ve.k * (rpmK - vvtPeak) ** 2 - Math.abs(p.vvt) * 0.0015, 0.45, 1.25);
   const pExh = 1.03e5 + 0.006e5 * rpmK * rpmK;
   const Tin = 318;
   const resid = clamp(0.035 + 0.11 * (1 - p.throttle) * (1 - rpmK / 9), 0.03, 0.2);
@@ -132,7 +134,7 @@ export function computeCycle(p) {
   let W = 0;
   for (let i = 0; i < 720; i++) W += 0.5 * (P[i] + P[i + 1]) * (V[i + 1] - V[i]);
   const imep = W / Vd;
-  const fmep = (0.97 + 0.15 * rpmK + 0.05 * rpmK * rpmK) * 1e5 * 0.85;
+  const fmep = (0.97 + 0.15 * rpmK + 0.05 * rpmK * rpmK) * 1e5 * 0.85 * (p.fric || 1);
   const bmep = imep - fmep;
   const n = p.cylinders;
   const torque = bmep * Vd * n / (4 * Math.PI);
