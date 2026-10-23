@@ -4,37 +4,40 @@ import { Engine, LAYOUTS } from './engine.js';
 import { computeCycle, bestAdvance, strokeOf, liftIn, liftEx, TIMING, wrap720 } from './thermo.js';
 import { M, clipPlanes, applyClip, setXray } from './materials.js';
 import { buildLab } from './lab.js';
+import { Post } from './post.js';
 import { drawPV, drawPA, drawCycles } from './charts.js';
 import { PARTS } from './parts.js';
 import { EngineSound } from './sound.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (x, d = 0) => x.toLocaleString('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d });
+const D2R = Math.PI / 180;
 
 // ---------------- рендер и сцена ----------------
 const canvas = $('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.VSMShadowMap;
 renderer.localClippingEnabled = true;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 300);
-camera.position.set(-7.4, 4.6, 11.6);
+const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 260);
+camera.position.set(-9.6, 5.4, 13.8);
 const controls = new OrbitControls(camera, canvas);
-controls.target.set(0, 0.5, 0);
+controls.target.set(0, 0.6, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.minDistance = 1.2;
-controls.maxDistance = 28;
+controls.minDistance = 1.5;
+controls.maxDistance = 30;
 controls.maxPolarAngle = Math.PI * 0.53;
-controls.autoRotateSpeed = 0.6;
+controls.autoRotateSpeed = 0.5;
 
-buildLab(renderer, scene);
+const env = buildLab(renderer, scene);
+const post = new Post(renderer, scene, camera);
 
 // ---------------- состояние ----------------
 const state = {
@@ -59,11 +62,8 @@ function rebuild() {
   fillWatch();
   updateClip();
   recompute();
-  buildLabels();
-  const d = engine.d;
-  const L = (d.n * Math.PI * d.B * d.B / 4 * d.S / 1e6);
-  $('spec').textContent = `${d.n} цил. · ${fmt(L, 2)} л · ${d.B}×${d.S} мм · DOHC ${d.n * 4}V`;
-  $('order').textContent = 'порядок работы ' + LAYOUTS[d.n].order;
+  buildCallouts();
+  $('order').textContent = 'порядок ' + LAYOUTS[engine.d.n].order;
 }
 
 function recompute() {
@@ -72,7 +72,7 @@ function recompute() {
   clearTimeout(recompute.t);
   recompute.t = setTimeout(() => {
     const b = bestAdvance(p);
-    $('bestAdv').textContent = `Лучший момент при ${b}° до ВМТ`;
+    $('bestAdv').textContent = `Больше всего момента при ${b}° до ВМТ`;
     $('setBest').dataset.v = b;
   }, 120);
 }
@@ -82,14 +82,13 @@ function updateClip() {
   if (!engine) return;
   const d = engine.d;
   const [pz, px] = clipPlanes;
-  const row = $('cutPosRow');
-  row.hidden = state.cut === 'none';
+  $('cutPosRow').hidden = state.cut === 'none';
   let planes = [], inter = false;
   if (state.cut === 'long') {
     const z = (state.cutPos - 0.5) * d.Wb;
     pz.normal.set(0, 0, -1); pz.constant = z / 100;
     planes = [pz];
-    $('cutPosLabel').textContent = 'Плоскость поперёк вала, сдвиг';
+    $('cutPosLabel').textContent = 'Сдвиг плоскости';
     $('cutPosV').textContent = `${fmt(z)} мм`;
   } else {
     const xMin = d.xs[0] - d.pitch / 2, xMax = d.xs[d.n - 1] + d.pitch / 2;
@@ -98,12 +97,13 @@ function updateClip() {
     pz.normal.set(0, 0, -1); pz.constant = 0;
     planes = state.cut === 'cross' ? [px] : state.cut === 'quarter' ? [pz, px] : [];
     inter = state.cut === 'quarter';
-    $('cutPosLabel').textContent = 'Плоскость разреза вдоль вала';
+    $('cutPosLabel').textContent = 'Плоскость вдоль вала';
     const near = d.xs.reduce((b, cx, i) => (Math.abs(cx - x) < Math.abs(d.xs[b] - x) ? i : b), 0);
     $('cutPosV').textContent = Math.abs(d.xs[near] - x) < 6 ? `по оси цил. ${near + 1}` : `${fmt(x)} мм`;
   }
   applyClip(planes, inter);
   engine.springMat.clippingPlanes = planes; engine.springMat.clipIntersection = inter; engine.springMat.needsUpdate = true;
+  paintRange($('cutPos'));
 }
 function cutToCylinder(i) {
   const d = engine.d;
@@ -112,7 +112,7 @@ function cutToCylinder(i) {
   $('cutPos').value = Math.round(state.cutPos * 1000);
 }
 const isClipped = (p) => {
-  const planes = engine && M.aluminum.clippingPlanes;
+  const planes = M.aluminum.clippingPlanes;
   if (!planes || !planes.length) return false;
   const neg = planes.map((pl) => pl.distanceToPoint(p) < 0);
   return M.aluminum.clipIntersection ? neg.every(Boolean) : neg.some(Boolean);
@@ -130,52 +130,106 @@ function applyVisibility() {
   g.pan.visible = v.pan;
   g.stand.visible = v.stand;
 }
-
-// ---------------- подписи ----------------
-const labelsEl = $('labels');
-const GROUP_OF = { alternator: 'block', block: 'block', crank: 'crank', flywheel: 'crank', piston: 'pistons', rod: 'pistons', head: 'head', camIn: 'valvetrain', camEx: 'valvetrain',
-  valveIn: 'valvetrain', spring: 'valvetrain', cover: 'cover', coil: 'cover', intake: 'intake', throttle: 'intake', exhaust: 'exhaust', belt: 'timing', pan: 'pan' };
-let labelItems = [];
-// детали внутри корпуса: подписываем, только когда их видно (разрез, рентген или снят корпус)
-const INNER = new Set(['piston', 'rod', 'crank', 'camIn', 'camEx', 'valveIn', 'spring']);
+function isVisibleUp(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }
 const innerVisible = () => state.cut !== 'none' || state.xray || state.explode > 0.3 || !state.visible.block || !state.visible.head || !state.visible.cover;
-function buildLabels() {
-  labelsEl.innerHTML = '';
-  labelItems = engine.anchors.map((a) => {
-    const el = document.createElement('div');
-    el.className = 'lbl'; el.textContent = PARTS[a.key].name;
-    labelsEl.appendChild(el);
-    return { el, a, group: GROUP_OF[a.key], inner: INNER.has(a.key) };
-  });
-  engine.d.xs.forEach((x, i) => {
-    const el = document.createElement('div');
-    el.className = 'lbl num'; el.textContent = String(i + 1);
-    labelsEl.appendChild(el);
-    labelItems.push({ el, a: { pos: new THREE.Vector3(x, engine.d.H1 + engine.d.coverH + 40, -engine.d.Wh / 2 + 30) }, group: 'cover', num: true });
+
+// ---------------- выноски с живыми цифрами ----------------
+const coEl = $('callouts'), svg = $('leaders');
+let callouts = [];
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+function buildCallouts() {
+  coEl.innerHTML = ''; svg.innerHTML = '';
+  const d = engine.d;
+  const w = () => engine.cyl[state.watch];
+  // где деталь (в мм модели), к какой группе относится, нужно ли разрез, где ставить табличку
+  const defs = [
+    { key: 'piston', group: 'pistons', inner: true, side: -1, dy: -30, at: () => V(w().x, w().crown - 22, -d.R * 0.75) },
+    { key: 'rod', group: 'pistons', inner: true, cutOnly: true, side: -1, dy: 40, at: () => { const c = w(); return V(c.x, (c.rod.position.y + c.piston.position.y) / 2, c.rod.position.z / 2); } },
+    { key: 'crank', group: 'crank', side: -1, dy: 30, at: () => V(d.xs[0] - d.pitch / 2, -d.mainR, 0) },
+    { key: 'camIn', group: 'valvetrain', inner: true, side: -1, dy: -40, at: () => V(d.xs[0] + d.pitch / 2, d.vIn.cam.y + d.R0, d.vIn.cam.z) },
+    { key: 'camEx', group: 'valvetrain', inner: true, side: 1, dy: -50, at: () => V(d.xs[d.n - 1] - d.pitch / 2, d.vEx.cam.y + d.R0, d.vEx.cam.z) },
+    { key: 'plug', group: 'head', inner: true, side: 1, dy: -20, at: () => V(w().x, d.H0 + d.hd + 20, 0) },
+    { key: 'throttle', group: 'intake', side: -1, dy: -30, at: () => V((d.Lb / 2 - 30) + 32, d.H0 + 60, -(d.Wh / 2 + 95)) },
+    { key: 'exhaust', group: 'exhaust', side: 1, dy: 20, at: () => V(d.xs[Math.min(1, d.n - 1)], d.H0 + 20, d.Wh / 2 + 52) },
+    { key: 'belt', group: 'timing', side: -1, dy: 10, at: () => V(d.xBelt - 12, (d.vIn.cam.y + d.vEx.cam.y) * 0.3, d.vEx.cam.z + 40) },
+    { key: 'flywheel', group: 'crank', side: 1, dy: 30, at: () => V(d.xRear + 30, d.B * 1.0, d.B * 0.95) },
+    { key: 'gas', group: 'gas', inner: true, cutOnly: true, side: 1, dy: 60, at: () => V(w().x, (w().crown + d.H0) / 2, -d.R * 0.4) },
+  ];
+  callouts = defs.map((def) => {
+    const el = document.createElement('div'); el.className = 'co';
+    el.innerHTML = `<b>${PARTS[def.key].name}</b><span></span>`;
+    coEl.appendChild(el);
+    const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); dot.setAttribute('r', '3');
+    svg.append(ln, dot);
+    return { ...def, el, sub: el.querySelector('span'), ln, dot, title: el.querySelector('b') };
   });
 }
-const tmpV = new THREE.Vector3();
-function updateLabels() {
-  const show = state.labels;
-  labelsEl.hidden = !show;
-  if (!show) return;
-  const w = canvas.clientWidth, h = canvas.clientHeight;
-  for (const it of labelItems) {
-    const grp = engine.groups[it.group];
-    let vis = grp ? grp.visible && isVisibleUp(grp) : true;
-    tmpV.copy(it.a.pos);
-    if (grp) tmpV.add(grp.position);
-    engine.root.localToWorld(tmpV);
-    if (vis && isClipped(tmpV) && !it.num) vis = false;
-    if (it.inner && !innerVisible()) vis = false;
-    tmpV.project(camera);
-    if (tmpV.z > 1 || !vis) { it.el.style.display = 'none'; continue; }
-    it.el.style.display = '';
-    it.el.style.transform = `translate(${(tmpV.x * 0.5 + 0.5) * w}px, ${(-tmpV.y * 0.5 + 0.5) * h - 10}px) translate(-50%, -100%)`;
-    it.el.style.left = '0'; it.el.style.top = '0';
+function calloutText(key) {
+  const c = engine.cyl[state.watch], d = engine.d, a = Math.round(c.alpha) % 720;
+  const om = state.rpm * 2 * Math.PI / 60, b = (c.alpha) * D2R, r = d.r / 1000, L = d.L / 1000;
+  const v = r * om * (Math.sin(b) + r * Math.sin(2 * b) / (2 * Math.sqrt(L * L - (r * Math.sin(b)) ** 2)));
+  const F = Math.max(0, cyc.P[a] - 1e5) * Math.PI * (d.B / 1000) ** 2 / 4 / 1000;
+  const em = (s) => `<em>${s}</em>`;
+  switch (key) {
+    case 'piston': return `${em(fmt(Math.abs(v), 1) + ' м/с')} · давит ${em(fmt(F, 1) + ' кН')}`;
+    case 'rod': { const phi = Math.abs(c.rod.rotation.x) / D2R; return `наклон ${em(fmt(phi, 1) + '°')} · ${em(fmt(F / Math.cos(phi * D2R), 1) + ' кН')}`; }
+    case 'crank': return `${em(fmt(state.rpm) + ' об/мин')} · ${em(fmt(Math.max(0, cyc.torque)) + ' Н·м')}`;
+    case 'camIn': return `${em(fmt(state.rpm / 2) + ' об/мин')} · подъём ${em(fmt(liftIn(c.alpha, state.vvt), 1) + ' мм')}`;
+    case 'camEx': return `${em(fmt(state.rpm / 2) + ' об/мин')} · подъём ${em(fmt(liftEx(c.alpha), 1) + ' мм')}`;
+    case 'plug': return c.spark ? `${em('искра!')} ≈ 25 кВ` : `зажигает за ${em(state.advance + '°')} до ВМТ`;
+    case 'throttle': return `открыта на ${em(fmt(state.throttle * 100) + ' %')} · ${em(fmt(cyc.pMan / 1000) + ' кПа')}`;
+    case 'exhaust': return `газы ${em(fmt(cyc.T[600] - 273) + ' °C')} · ${em(fmt(cyc.fuelFlow * 15.7 * 1000, 0) + ' г/с')}`;
+    case 'belt': return `${em(fmt(0.3 * d.B / 1000 * om, 1) + ' м/с')} · распредвалы вдвое медленнее`;
+    case 'flywheel': return `запас ${em(fmt(0.5 * 0.13 * om * om / 1000, 1) + ' кДж')}`;
+    case 'gas': return `${em(fmt(cyc.P[a] / 1e5, 1) + ' бар')} · ${em(fmt(cyc.T[a] - 273) + ' °C')} · ${em(fmt(cyc.V[a] * 1e6) + ' см³')}`;
+    default: return '';
   }
 }
-function isVisibleUp(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }
+const tmp = new THREE.Vector3(), cen = new THREE.Vector3();
+function updateCallouts(textToo) {
+  const show = state.labels && !engine.exploded;
+  coEl.hidden = !show; svg.style.display = show ? '' : 'none';
+  if (!show) return;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  cen.set(0, 0.8, 0).project(camera);
+  const cx = (cen.x * 0.5 + 0.5) * w;
+  const used = [];
+  const leftEdge = Math.max($('gauges').getBoundingClientRect().right, document.querySelector('.hero').getBoundingClientRect().right) + 14;
+  const rightEdge = $('controls').getBoundingClientRect().left - 14;
+  for (const co of callouts) {
+    const grp = engine.groups[co.group];
+    let vis = grp ? isVisibleUp(grp) : true;
+    if (co.inner && !innerVisible()) vis = false;
+    if (co.cutOnly && state.cut === 'none') vis = false;
+    tmp.copy(co.at());
+    if (grp) tmp.add(grp.position);
+    engine.root.localToWorld(tmp);
+    if (vis && isClipped(tmp)) vis = false;
+    tmp.project(camera);
+    if (tmp.z > 1 || Math.abs(tmp.x) > 1.1 || Math.abs(tmp.y) > 1.1) vis = false;
+    if (!vis) { co.el.style.display = 'none'; co.ln.style.display = 'none'; co.dot.style.display = 'none'; continue; }
+    const ax = (tmp.x * 0.5 + 0.5) * w, ay = (-tmp.y * 0.5 + 0.5) * h;
+    const side = ax < cx ? -1 : 1;
+    if (textToo) co.sub.innerHTML = calloutText(co.key);
+    co.el.style.display = ''; co.ln.style.display = ''; co.dot.style.display = '';
+    const bw = co.el.offsetWidth, bh = co.el.offsetHeight;
+    let bx = ax + side * 70, by = ay + co.dy - bh / 2;
+    if (side < 0) bx -= bw;
+    // не даём табличкам налезать друг на друга
+    for (const u of used) if (bx < u.x + u.w + 6 && bx + bw + 6 > u.x && by < u.y + u.h + 4 && by + bh + 4 > u.y) by = u.y + u.h + 6;
+    // таблички не заходят под левую колонку и правую панель
+    const lo = w > 900 ? leftEdge : 8, hi = w > 900 ? rightEdge : w - 8;
+    if (bx < lo) bx = side < 0 ? Math.max(lo, ax + 70) : lo;
+    if (bx + bw > hi) bx = hi - bw;
+    by = Math.max(8, Math.min(h - bh - 90, by));
+    used.push({ x: bx, y: by, w: bw, h: bh });
+    co.el.style.transform = `translate(${bx}px, ${by}px)`;
+    const ex = side < 0 ? bx + bw : bx, ey = by + bh / 2;
+    co.ln.setAttribute('x1', ax); co.ln.setAttribute('y1', ay); co.ln.setAttribute('x2', ex); co.ln.setAttribute('y2', ey);
+    co.dot.setAttribute('cx', ax); co.dot.setAttribute('cy', ay);
+  }
+}
 
 // ---------------- подсказка при наведении ----------------
 const ray = new THREE.Raycaster();
@@ -194,11 +248,11 @@ function doHover() {
   let hit = null;
   for (const h of hits) {
     const o = h.object;
-    if (!o.userData.part || !isVisibleUp(o)) continue;
+    if (!o.userData.part || !PARTS[o.userData.part] || !isVisibleUp(o)) continue;
+    if (o.isInstancedMesh || o.isPoints) continue;
     if (isClipped(h.point)) continue;
     if (state.xray && o.material && o.material.transparent && o.userData.part !== 'gas') continue;
     if (o.userData.part === 'gas' && !(state.cut !== 'none' || state.xray)) continue;
-    if (o.userData.part === 'coolant' && hits.length > 1 && !state.xray && state.cut === 'none') continue;
     hit = h; break;
   }
   if (!hit) { tip.hidden = true; return; }
@@ -220,38 +274,34 @@ function doHover() {
 
 // ---------------- камера ----------------
 let tween = null;
-function flyTo(pos, target, dur = 1.1) {
-  tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: target, start: performance.now(), dur };
-}
+function flyTo(pos, target, dur = 1.2) { tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: target, start: performance.now(), dur }; }
 function view(name) {
   const d = engine.d, s = 0.01;
   const xw = d.xs[state.watch] * s;
-  const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const views = {
-    overview: [V(-7.4, 4.6, 11.6), V(0, 0.5, 0)],
-    front: [V(-9.5, 2.2, 1.2), V(-1.5, 1.0, 0)],
-    side: [V(0.4, 1.8, 10.5), V(0, 0.9, 0)],
-    top: [V(0.01, 11, 1.2), V(0, 1.4, 0)],
-    cyl: [V(xw - 6.2, d.H0 * s + 0.9, 3.4), V(xw, (d.deck - d.S * 0.9) * s, 0)],
-    valves: [V(xw - 4.6, d.H1 * s + 1.9, 2.6), V(xw, (d.H0 + 55) * s, 0)],
+    overview: [V(-9.6, 5.4, 13.8), V(0, 0.6, 0)],
+    front: [V(-11.5, 2.6, 1.6), V(-1.5, 1.0, 0)],
+    side: [V(0.4, 2.0, 13.5), V(0, 0.8, 0)],
+    top: [V(0.01, 13, 1.4), V(0, 1.4, 0)],
+    cyl: [V(xw - 8.8, d.H0 * s + 1.3, 5.2), V(xw, (d.deck - d.S * 0.9) * s, -0.2)],
+    valves: [V(xw - 6.6, d.H1 * s + 2.6, 3.8), V(xw, (d.H0 + 55) * s, -0.2)],
   };
-  if (name === 'cyl' || name === 'valves') {
-    if (state.cut === 'none' || state.cut === 'long') setCut('cross');
-    cutToCylinder(state.watch); updateClip();
-  }
+  if (name === 'cyl' || name === 'valves') { if (state.cut === 'none' || state.cut === 'long') setCut('cross'); cutToCylinder(state.watch); updateClip(); }
   const [p, t] = views[name];
   flyTo(p, t);
 }
 
 // ---------------- интерфейс ----------------
+function paintRange(el) { const p = (el.value - el.min) / (el.max - el.min) * 100; el.style.setProperty('--p', p + '%'); }
 function bindRange(id, fn, show) {
   const el = $(id), out = $(id + 'V');
-  const upd = () => { fn(+el.value); if (out) out.textContent = show(+el.value); };
+  const upd = () => { fn(+el.value); if (out && show) out.textContent = show(+el.value); paintRange(el); };
   el.addEventListener('input', upd);
   upd();
 }
 let rebuildT = 0;
 const scheduleRebuild = () => { clearTimeout(rebuildT); rebuildT = setTimeout(rebuild, 220); };
+const clearPreset = () => $('preset').querySelectorAll('button').forEach((b) => b.classList.remove('on'));
 
 bindRange('rpm', (v) => { state.rpm = v; engine && recompute(); }, (v) => `${fmt(v)} об/мин`);
 bindRange('throttle', (v) => { state.throttle = v / 100; engine && recompute(); }, (v) => `${v} %`);
@@ -260,13 +310,12 @@ bindRange('vvt', (v) => { state.vvt = v; engine && recompute(); }, (v) => (v ===
 bindRange('bore', (v) => { state.bore = v; engine && scheduleRebuild(); }, (v) => `${v} мм`);
 bindRange('stroke', (v) => { state.stroke = v; engine && scheduleRebuild(); }, (v) => `${v} мм`);
 bindRange('cr', (v) => { state.cr = v; engine && scheduleRebuild(); }, (v) => `${fmt(v, 1)} : 1`);
-bindRange('explode', (v) => { state.explode = v / 100; engine && engine.setExplode(state.explode); engine && applyVisibility(); }, (v) => (v ? `${v} %` : 'собран'));
-bindRange('cutPos', (v) => { state.cutPos = v / 1000; updateClip(); }, () => $('cutPosV').textContent);
-bindRange('slow', (v) => { state.slow = v; }, () => {
-  const f = slowFactor();
-  return f >= 0.999 ? 'нет, реальное время' : `в ${fmt(1 / f)} раз`;
-});
-$('setBest').addEventListener('click', () => { const v = +$('setBest').dataset.v; if (!isNaN(v)) { $('advance').value = v; $('advance').dispatchEvent(new Event('input')); } });
+bindRange('explode', (v) => { state.explode = v / 100; if (engine) { engine.setExplode(state.explode); applyVisibility(); } }, (v) => (v ? `${v} %` : 'собран'));
+bindRange('cutPos', (v) => { state.cutPos = v / 1000; updateClip(); });
+bindRange('slow', (v) => { state.slow = v; }, () => { const f = slowFactor(); return f >= 0.999 ? 'нет' : `в ${fmt(1 / f)} раз`; });
+['rpm', 'throttle'].forEach((id) => $(id).addEventListener('input', clearPreset));
+$('setBest').addEventListener('click', () => { const v = +$('setBest').dataset.v; if (!isNaN(v)) setRange('advance', v); });
+function setRange(id, v) { $(id).value = v; $(id).dispatchEvent(new Event('input')); }
 
 function segGroup(id, fn) {
   const root = $(id);
@@ -276,7 +325,9 @@ function segGroup(id, fn) {
     fn(b.dataset.v);
   });
 }
-segGroup('cylinders', (v) => { state.cylinders = +v; state.watch = 0; rebuild(); });
+const PRESETS = { idle: [800, 8, 12], city: [2000, 35, 24], full: [5200, 100, 28], red: [6800, 100, 30] };
+segGroup('preset', (v) => { const [r, t, a] = PRESETS[v]; setRange('rpm', r); setRange('throttle', t); setRange('advance', a); $('preset').querySelector(`[data-v="${v}"]`).classList.add('on'); });
+segGroup('cylinders', (v) => { state.cylinders = +v; state.watch = 0; rebuild(); setCut(state.cut); });
 function setCut(v) {
   state.cut = v;
   $('cut').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === v));
@@ -286,6 +337,8 @@ function setCut(v) {
   updateClip();
 }
 segGroup('cut', setCut);
+segGroup('shell', (v) => { state.xray = v === 'glass'; setXray(state.xray); });
+segGroup('env', (v) => env.setMode(v));
 
 function fillWatch() {
   const sel = $('watch');
@@ -294,20 +347,18 @@ function fillWatch() {
   sel.value = state.watch;
 }
 $('watch').addEventListener('change', (e) => { state.watch = +e.target.value; if (state.cut === 'cross') { cutToCylinder(state.watch); updateClip(); } });
-
-$('xray').addEventListener('change', (e) => { state.xray = e.target.checked; setXray(state.xray); });
 $('flow').addEventListener('change', (e) => { state.flow = e.target.checked; });
 $('labelsOn').addEventListener('change', (e) => { state.labels = e.target.checked; });
 $('autorot').addEventListener('change', (e) => { controls.autoRotate = e.target.checked; });
+$('hq').addEventListener('change', (e) => { post.enabled = e.target.checked; renderer.setPixelRatio(Math.min(post.enabled ? 1.5 : 2, window.devicePixelRatio || 1)); resize(); });
 document.querySelectorAll('[data-group]').forEach((el) => el.addEventListener('change', () => { state.visible[el.dataset.group] = el.checked; applyVisibility(); }));
 document.querySelectorAll('[data-view]').forEach((el) => el.addEventListener('click', () => view(el.dataset.view)));
+let chartMode = 'pv';
 document.querySelectorAll('[data-chart]').forEach((el) => el.addEventListener('click', () => {
   chartMode = el.dataset.chart;
   document.querySelectorAll('[data-chart]').forEach((x) => x.classList.toggle('on', x === el));
   $('logScale').parentElement.hidden = chartMode !== 'pv';
 }));
-let chartMode = 'pv';
-
 $('play').addEventListener('click', () => {
   state.playing = !state.playing;
   $('play').textContent = state.playing ? '❚❚' : '▶';
@@ -315,20 +366,13 @@ $('play').addEventListener('click', () => {
 });
 $('back').addEventListener('click', () => { theta -= 5; });
 $('fwd').addEventListener('click', () => { theta += 5; });
-$('soundBtn').addEventListener('click', () => {
-  const on = !sound.on;
-  if (on) sound.start(); else sound.stop();
-  $('soundBtn').setAttribute('aria-pressed', String(sound.on));
-});
+$('soundBtn').addEventListener('click', () => { if (sound.on) sound.stop(); else sound.start(); $('soundBtn').setAttribute('aria-pressed', String(sound.on)); });
 $('toggleControls').addEventListener('click', () => {
   const open = $('controls').classList.toggle('open');
   $('toggleControls').setAttribute('aria-expanded', String(open));
   $('toggleControls').textContent = open ? 'Закрыть' : 'Настройки';
 });
-$('gaugesToggle').addEventListener('click', () => {
-  const c = $('gauges').classList.toggle('collapsed');
-  $('gaugesToggle').setAttribute('aria-expanded', String(!c));
-});
+$('gaugesToggle').addEventListener('click', () => { const c = $('gauges').classList.toggle('collapsed'); $('gaugesToggle').setAttribute('aria-expanded', String(!c)); });
 window.addEventListener('keydown', (e) => {
   if (e.target.closest('input, select')) return;
   if (e.code === 'Space') { e.preventDefault(); $('play').click(); }
@@ -336,40 +380,42 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') theta += e.shiftKey ? 1 : 5;
 });
 
-// ---------------- пояснение к текущему такту ----------------
-const STROKE_CLASS = { intake: 'var(--intake)', compression: 'var(--compress)', power: 'var(--fire)', exhaust: 'var(--exhaust)' };
+// ---------------- пояснение к такту ----------------
+const STROKE_COLOR = { intake: 'var(--intake)', compression: 'var(--compress)', power: 'var(--fire)', exhaust: 'var(--exhaust)' };
 function explain(alpha) {
   const a = Math.round(wrap720(alpha)) % 720;
   const st = strokeOf(alpha);
   const inOpen = liftIn(alpha, state.vvt) > 0.3, exOpen = liftEx(alpha) > 0.3;
   const p = cyc.P[a] / 1e5, T = cyc.T[a] - 273;
+  const v = (s) => `<span class="v">${s}</span>`, c = (s) => `<span class="c">${s}</span>`;
   let text;
-  if (inOpen && exOpen) text = 'Перекрытие клапанов: открыты и впускной, и выпускной. Уходящие газы помогают втянуть свежую смесь.';
-  else if (st.key === 'intake') text = `Поршень идёт вниз и создаёт разрежение. Через впускные клапаны в цилиндр втекает смесь воздуха и бензина. Давление ${fmt(p, 2)} бар.`;
-  else if (st.key === 'compression' && alpha < cyc.ign) text = `Клапаны закрыты. Поршень поднимается и сжимает смесь в ${fmt(state.cr, 1)} раза — она нагревается до ${fmt(T)} °C, давление ${fmt(p, 1)} бар.`;
-  else if (alpha >= cyc.ign && alpha < 360) text = `Искра за ${state.advance}° до ВМТ: пламени нужно время, чтобы разгореться, поэтому смесь поджигают заранее. Давление уже ${fmt(p, 1)} бар.`;
-  else if (st.key === 'power' && !exOpen) text = `Рабочий ход. Сгоревшие газы (${fmt(T)} °C, ${fmt(p, 1)} бар) давят на поршень и через шатун вращают коленвал. Только этот такт даёт работу.`;
-  else if (st.key === 'power') text = 'Выпускной клапан открылся до НМТ: газы под остаточным давлением сами вырываются в коллектор — свободный выпуск.';
-  else text = `Поршень поднимается и выталкивает горячие газы (${fmt(T)} °C) через выпускные клапаны в коллектор.`;
-  return { st, text, inOpen, exOpen };
+  if (inOpen && exOpen) text = `<b>Перекрытие клапанов.</b> Открыты и впускной, и выпускной: уходящие газы помогают втянуть свежую смесь.`;
+  else if (st.key === 'intake') text = `<b>Впуск.</b> Поршень идёт вниз и тянет за собой смесь воздуха и бензина. В цилиндре разрежение — ${c(fmt(p, 2) + ' бар')}.`;
+  else if (st.key === 'compression' && alpha < cyc.ign) text = `<b>Сжатие.</b> Клапаны закрыты. Поршень сжимает смесь в ${c(fmt(state.cr, 1) + ' раза')}: она нагревается до ${v(fmt(T) + ' °C')}, давление ${v(fmt(p, 1) + ' бар')}.`;
+  else if (alpha >= cyc.ign && alpha < 360) text = `<b>Искра.</b> Свеча поджигает смесь за ${v(state.advance + '°')} до ВМТ — пламени нужно время, чтобы разгореться. Давление уже ${v(fmt(p, 1) + ' бар')}.`;
+  else if (st.key === 'power' && !exOpen) text = `<b>Рабочий ход.</b> Газы при ${v(fmt(T) + ' °C')} и ${v(fmt(p, 1) + ' бар')} толкают поршень вниз. Только этот такт даёт работу.`;
+  else if (st.key === 'power') text = `<b>Свободный выпуск.</b> Выпускной клапан открылся до НМТ: газы под давлением сами вырываются в коллектор.`;
+  else text = `<b>Выпуск.</b> Поршень поднимается и выталкивает газы при ${v(fmt(T) + ' °C')} в выпускной коллектор.`;
+  return { st, text };
 }
 
 // ---------------- главный цикл ----------------
 const clock = new THREE.Clock();
-let uiT = 0, time = 0;
+let uiT = 0, coT = 0, time = 0;
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  camera.fov = w < 700 ? 52 : 38;
-  // сдвигаем центр кадра между левыми приборами и правой панелью
-  if (w > 900) camera.setViewOffset(w, h, -Math.round((Math.min(400, w * 0.28) - 310) / 2) - 40, 0, w, h);
+  camera.fov = w < 700 ? 50 : 34;
+  if (w > 900) camera.setViewOffset(w, h, -Math.round((Math.min(380, w * 0.27) - 330) / 2) - 10, 0, w, h);
   else camera.clearViewOffset();
   camera.updateProjectionMatrix();
+  post.setSize();
 }
 window.addEventListener('resize', resize);
 resize();
+const camLocal = new THREE.Vector3();
 
 function frame() {
   const dt = Math.min(0.05, clock.getDelta());
@@ -377,33 +423,30 @@ function frame() {
   let dTheta = 0;
   if (state.playing) { dTheta = state.rpm / 60 * 360 * dt * slowFactor(); theta += dTheta; }
   if (tween) {
-    tween.t = Math.min(1, (performance.now() - tween.start) / 1000 / tween.dur);
-    const k = tween.t < 0.5 ? 4 * tween.t ** 3 : 1 - (-2 * tween.t + 2) ** 3 / 2;
+    const t = Math.min(1, (performance.now() - tween.start) / 1000 / tween.dur);
+    const k = t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
     camera.position.lerpVectors(tween.p0, tween.p1, k);
     controls.target.lerpVectors(tween.t0, tween.t1, k);
-    if (tween.t >= 1) tween = null;
+    if (t >= 1) tween = null;
   }
   const load = state.throttle;
-  // коллектор краснеет только на серьёзной нагрузке: тепло ∝ расходу газов и их температуре
   const heatTarget = Math.min(1.3, 1.3 * Math.pow(state.rpm / 6000, 1.5) * Math.pow(load, 1.2)) * (state.playing ? 1 : 0.6);
   heat += (heatTarget - heat) * Math.min(1, dt / 4);
   engine.theta = theta;
-  engine.update(theta, { cyc, vvt: state.vvt, throttle: state.throttle, flow: state.flow, dTheta: dTheta || 0, time, watch: state.cut === 'none' && !state.xray ? -1 : state.watch, heat: heat * 2.4 });
+  camLocal.copy(camera.position).multiplyScalar(100);
+  engine.update(theta, { cyc, vvt: state.vvt, throttle: state.throttle, flow: state.flow, dTheta, time, watch: state.cut === 'none' && !state.xray ? -1 : state.watch, heat: heat * 2.4, cam: camLocal });
 
-  // вспышки — для звука
-  const fireRate = state.playing ? state.rpm / 60 * engine.d.n / 2 * slowFactor() : 0;
-  sound.update(fireRate, load);
-  if (dTheta > 0 && dTheta < 180) {
-    for (const c of engine.cyl) {
-      const k0 = Math.floor((theta - dTheta - c.off - cyc.ign) / 720), k1 = Math.floor((theta - c.off - cyc.ign) / 720);
-      if (k1 > k0) sound.fire(load);
-    }
+  // звук: по вспышкам в цилиндрах
+  sound.update(state.playing ? state.rpm / 60 * engine.d.n / 2 * slowFactor() : 0, load);
+  if (dTheta > 0 && dTheta < 180) for (const c of engine.cyl) {
+    if (Math.floor((theta - c.off - cyc.ign) / 720) > Math.floor((theta - dTheta - c.off - cyc.ign) / 720)) sound.fire(load);
   }
 
   controls.update();
-  renderer.render(scene, camera);
-  updateLabels();
-
+  post.render(camera.position.distanceTo(controls.target), time);
+  coT += dt;
+  updateCallouts(coT > 0.1);
+  if (coT > 0.1) coT = 0;
   uiT += dt;
   if (uiT > 0.08) { uiT = 0; updateUI(); }
   requestAnimationFrame(frame);
@@ -414,45 +457,39 @@ function updateUI() {
   const ex = explain(c.alpha);
   $('nowCyl').textContent = `Цилиндр ${state.watch + 1} · ${fmt(c.alpha)}° цикла`;
   const pill = $('nowStroke');
-  pill.textContent = ex.st.name;
-  pill.style.background = STROKE_CLASS[ex.st.key];
-  $('nowText').textContent = ex.text;
+  pill.textContent = ex.st.name; pill.style.background = STROKE_COLOR[ex.st.key];
+  $('nowText').innerHTML = ex.text;
   const li = liftIn(c.alpha, state.vvt), le = liftEx(c.alpha);
-  $('vIn').textContent = li > 0.05 ? `Впуск: ${fmt(li, 1)} мм` : 'Впуск: закрыт';
-  $('vEx').textContent = le > 0.05 ? `Выпуск: ${fmt(le, 1)} мм` : 'Выпуск: закрыт';
-  $('vIn').classList.toggle('open', li > 0.05);
-  $('vEx').classList.toggle('open', le > 0.05);
+  $('vIn').textContent = li > 0.05 ? `Впуск ${fmt(li, 1)} мм` : 'Впуск закрыт';
+  $('vEx').textContent = le > 0.05 ? `Выпуск ${fmt(le, 1)} мм` : 'Выпуск закрыт';
+  $('vIn').classList.toggle('open', li > 0.05); $('vEx').classList.toggle('open', le > 0.05);
   $('vSpark').hidden = !c.spark;
 
-  $('roRpm').textContent = fmt(state.rpm);
-  $('roTorque').textContent = fmt(Math.max(0, cyc.torque));
-  $('roPower').textContent = fmt(Math.max(0, cyc.power / 1000), 1);
-  $('roHp').textContent = `кВт · ${fmt(Math.max(0, cyc.power / 735.5))} л.с.`;
-  $('roEff').textContent = `${fmt(cyc.etaE * 100)} %`;
+  $('tPower').textContent = fmt(Math.max(0, cyc.power / 1000), 1);
+  $('tHp').textContent = `кВт`;
+  $('tTorque').textContent = fmt(Math.max(0, cyc.torque));
+  $('tEff').textContent = fmt(cyc.etaE * 100);
+  $('gaugeSum').textContent = `${fmt(Math.max(0, cyc.power / 735.5))} л.с. · ${fmt(cyc.displacement * 1000, 1)} л`;
   $('roPmax').textContent = fmt(cyc.pmax / 1e5, 0);
   $('roPmaxA').textContent = `бар · ${fmt(cyc.apmax - 360)}° после ВМТ`;
   $('roMap').textContent = fmt(cyc.pMan / 1000);
   $('roPs').textContent = fmt(cyc.pistonSpeed, 1);
-  const kb = $('knockBox');
-  kb.className = 'ro ' + (cyc.knock ? 'bad' : cyc.knockRisk > 0.6 ? 'warn' : 'ok');
+  $('knockBox').className = 'ro ' + (cyc.knock ? 'bad' : cyc.knockRisk > 0.6 ? 'warn' : 'ok');
   $('roKnock').textContent = cyc.knock ? 'есть!' : cyc.knockRisk > 0.6 ? 'риск' : 'нет';
-  $('roTu').textContent = `смесь перед фронтом ${fmt(cyc.TuMax - 273)} °C`;
-
+  $('roTu').textContent = `смесь ${fmt(cyc.TuMax - 273)} °C`;
   const a = Math.round(c.alpha) % 720;
-  $('live').textContent = `Ц${state.watch + 1}: p ${fmt(cyc.P[a] / 1e5, 1)} бар · T ${fmt(cyc.T[a] - 273)} °C · V ${fmt(cyc.V[a] * 1e6)} см³ · ход ${fmt(engine.d.crownTDC - c.crown, 1)} мм`;
-  const th = wrap720(theta);
-  $('angle').textContent = `${fmt(th)}° КВ`;
+  $('live').textContent = `Ц${state.watch + 1}: p ${fmt(cyc.P[a] / 1e5, 1)} бар · T ${fmt(cyc.T[a] - 273)} °C · V ${fmt(cyc.V[a] * 1e6)} см³`;
+  $('angle').textContent = `${fmt(wrap720(theta))}° КВ`;
   const revSec = 60 / state.rpm / slowFactor();
-  $('perRev').textContent = revSec >= 1 ? `1 оборот за ${fmt(revSec, 1)} с` : `${fmt(1 / revSec, revSec > 0.1 ? 1 : 0)} об/с на экране`;
-
-  if (chartMode === 'pv') drawPV($('chart'), cyc, c.alpha, $('logScale').checked);
-  else drawPA($('chart'), cyc, c.alpha, state.vvt);
-  drawCycles($('cycles'), engine, state.watch);
+  $('perRev').textContent = revSec >= 1 ? `оборот за ${fmt(revSec, 1)} с` : `${fmt(1 / revSec, revSec > 0.1 ? 1 : 0)} об/с на экране`;
+  if (!$('gauges').classList.contains('collapsed') && $('gauges').getClientRects().length) {
+    if (chartMode === 'pv') drawPV($('chart'), cyc, c.alpha, $('logScale').checked);
+    else drawPA($('chart'), cyc, c.alpha, state.vvt);
+    drawCycles($('cycles'), engine, state.watch);
+  }
 }
 
-if (window.innerWidth < 900) $('gauges').classList.add('collapsed');
-if (window.innerWidth < 700) { state.labels = false; $('labelsOn').checked = false; }
-// для проверки из консоли: lab.theta = 360 — поставить коленвал на угол
+if (window.innerWidth < 700) { state.labels = false; $('labelsOn').checked = false; post.enabled = false; $('hq').checked = false; }
 window.lab = { state, view, get theta() { return theta; }, set theta(v) { theta = v; } };
 rebuild();
 setCut('quarter');

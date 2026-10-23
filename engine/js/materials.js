@@ -16,7 +16,11 @@ function hatch(shader, cutColor) {
   shader.fragmentShader = 'uniform vec3 uCut;\nuniform float uXray;\n' + shader.fragmentShader.replace(
     '#include <dithering_fragment>',
     `#include <dithering_fragment>
-    if (!gl_FrontFacing && uXray < 0.5) {
+    if (uXray > 0.5) {
+      // матовое стекло: прозрачное в центре, светлый ободок по краям
+      float fr = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 2.2);
+      gl_FragColor = vec4(mix(gl_FragColor.rgb, vec3(0.93, 0.97, 1.0), 0.6 + 0.3 * fr), 0.05 + 0.5 * fr);
+    } else if (!gl_FrontFacing) {
       float h = step(0.62, fract((gl_FragCoord.x + gl_FragCoord.y) / 7.0));
       gl_FragColor = vec4(uCut * (0.78 + 0.22 * h), 1.0);
     }`);
@@ -53,7 +57,7 @@ export function onClipChange(fn) { extraClipped.push(fn); }
 export function setXray(on) {
   for (const m of solids) {
     m.transparent = on;
-    m.opacity = on ? 0.13 : 1;
+    m.opacity = 1;
     m.depthWrite = !on;
     if (m.userData.shader) m.userData.shader.uniforms.uXray.value = on ? 1 : 0;
     m.needsUpdate = true;
@@ -122,10 +126,10 @@ export const beltTex = canvasTex(64, 32, (g, w, h) => {
 }, [40, 1]);
 
 export const M = {
-  aluminum: cutMat({ color: 0x9da2a7, metalness: 0.6, roughness: 0.5, bumpMap: castBump, bumpScale: 0.7 }, 0xc9472d, { housing: true }),
-  head: cutMat({ color: 0xc6c7c4, metalness: 0.5, roughness: 0.45, bumpMap: castBump, bumpScale: 0.5 }, 0xd0532f, { housing: true }),
+  aluminum: cutMat({ color: 0xb7bcc2, metalness: 0.55, roughness: 0.46, bumpMap: castBump, bumpScale: 0.7 }, 0xc9472d, { housing: true }),
+  head: cutMat({ color: 0xd2d3d0, metalness: 0.5, roughness: 0.42, bumpMap: castBump, bumpScale: 0.5 }, 0xd0532f, { housing: true }),
   iron: cutMat({ color: 0x55585c, metalness: 0.6, roughness: 0.55 }, 0x8c3a2a, { housing: true }),
-  cover: cutMat({ color: 0x8e1d22, metalness: 0.15, roughness: 0.62, bumpMap: crinkle, bumpScale: 1.4 }, 0xd8a24a, { housing: true }),
+  cover: cutMat({ color: 0xb3262c, metalness: 0.2, roughness: 0.5, bumpMap: crinkle, bumpScale: 1.4 }, 0xd8a24a, { housing: true }),
   pan: cutMat({ color: 0x2a2d31, metalness: 0.45, roughness: 0.5 }, 0xc9472d, { housing: true }),
   steel: cutMat({ color: 0xc9ced4, metalness: 1, roughness: 0.28, roughnessMap: brushed }, 0xe8d3a0),
   forged: cutMat({ color: 0x8d9298, metalness: 0.95, roughness: 0.38 }, 0xe0b878),
@@ -145,7 +149,7 @@ export const M = {
   plenum: cutMat({ color: 0x2b2f35, metalness: 0.5, roughness: 0.45, bumpMap: castBump, bumpScale: 0.4 }, 0xc9472d, { housing: true }),
   exhaust: tubeMat({ color: 0x4a403a, metalness: 0.75, roughness: 0.6, emissive: 0xff3a08, emissiveIntensity: 0 }),
   brass: cutMat({ color: 0xc9a253, metalness: 1, roughness: 0.32 }, 0xffe1a0),
-  stand: new THREE.MeshStandardMaterial({ color: 0x2f5d8a, metalness: 0.5, roughness: 0.5 }),
+  stand: new THREE.MeshStandardMaterial({ color: 0x4a525d, metalness: 0.55, roughness: 0.45 }),
   standDark: new THREE.MeshStandardMaterial({ color: 0x23272c, metalness: 0.6, roughness: 0.5 }),
   coolant: new THREE.MeshStandardMaterial({ color: 0x3fd0c9, transparent: true, opacity: 0.38, roughness: 0.1, metalness: 0, depthWrite: false, side: THREE.DoubleSide }),
   oil: new THREE.MeshStandardMaterial({ color: 0xc28a1c, transparent: true, opacity: 0.72, roughness: 0.08, metalness: 0, side: THREE.DoubleSide }),

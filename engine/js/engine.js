@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { M, cutMat, tubeMat, beltTex, clipState, onClipChange } from './materials.js';
 import { TIMING, liftIn, liftEx, wrap720 } from './thermo.js';
+import { addDetails } from './details.js';
 
 // Схемы рядных двигателей: сдвиг цикла каждого цилиндра (° КВ) и порядок работы
 export const LAYOUTS = {
@@ -217,6 +218,7 @@ export class Engine {
     this.anchors = [];
     this.buildBlock(); this.buildCrank(); this.buildPistons(); this.buildHead(); this.buildValvetrain();
     this.buildCover(); this.buildIntake(); this.buildExhaust(); this.buildTiming(); this.buildPan(); this.buildAccessories(); this.buildGas(); this.buildStand();
+    this.details = addDetails(this);
     this.sparkLights = [0, 1].map(() => { const l = new THREE.PointLight(0xffa040, 0, 3.2, 1.6); this.root.add(l); return l; });
   }
 
@@ -534,7 +536,7 @@ export class Engine {
     plen.rotation.z = Math.PI / 2; plen.position.set(0, yP, zP);
     this.add('intake', plen);
     // дроссельный узел
-    const tbX = -(d.Lb / 2 - 30) - 30;
+    const tbX = (d.Lb / 2 - 30) + 30; // дроссель сзади, подальше от камеры
     const tb = mesh(lathe([[29, -32], [33, -32], [33, 32], [29, 32]], 48), M.intake, 'throttle');
     tb.rotation.z = Math.PI / 2; tb.position.set(tbX, yP, zP);
     this.add('intake', tb);
@@ -610,52 +612,9 @@ export class Engine {
       { c: new THREE.Vector2(vIn.cam.z, vIn.cam.y), r: rcs, key: 'in' },
       { c: new THREE.Vector2((vIn.cam.z - rcs - rc) * 0.5 + 0.2 * B, camY * 0.5), r: 0.18 * B, key: 'idler' },
     ];
-    const pts = [];
-    const tangents = [];
-    for (let i = 0; i < circles.length; i++) {
-      const A = circles[i], Bc = circles[(i + 1) % circles.length];
-      const dv = Bc.c.clone().sub(A.c), Dl = dv.length(), dh = dv.clone().divideScalar(Dl);
-      const psi = Math.acos((A.r - Bc.r) / Dl);
-      const ang = Math.atan2(dh.y, dh.x) - psi;
-      const nrm = new THREE.Vector2(Math.cos(ang), Math.sin(ang));
-      tangents.push([A.c.clone().addScaledVector(nrm, A.r), Bc.c.clone().addScaledVector(nrm, Bc.r)]);
-    }
-    for (let i = 0; i < circles.length; i++) {
-      const C = circles[i];
-      const pin = tangents[(i - 1 + circles.length) % circles.length][1], pout = tangents[i][0];
-      let a0 = Math.atan2(pin.y - C.c.y, pin.x - C.c.x), a1 = Math.atan2(pout.y - C.c.y, pout.x - C.c.x);
-      while (a1 < a0) a1 += Math.PI * 2;
-      const steps = Math.max(4, Math.ceil((a1 - a0) * C.r / 3));
-      for (let k = 0; k <= steps; k++) { const a = a0 + (a1 - a0) * k / steps; pts.push(new THREE.Vector2(C.c.x + C.r * Math.cos(a), C.c.y + C.r * Math.sin(a))); }
-      const [p0, p1] = tangents[i];
-      const ls = Math.ceil(p0.distanceTo(p1) / 4);
-      for (let k = 1; k < ls; k++) pts.push(p0.clone().lerp(p1, k / ls));
-    }
-    // лента ремня
     const W = 24, T = 4.2;
-    const pos = [], uv = [], idx = [];
-    let s = 0;
-    const N = pts.length;
-    for (let i = 0; i <= N; i++) {
-      const p = pts[i % N], q = pts[(i + 1) % N], pr = pts[(i - 1 + N) % N];
-      if (i > 0) s += p.distanceTo(pts[(i - 1) % N]);
-      const t = q.clone().sub(pr).normalize();
-      const nr = new THREE.Vector2(t.y, -t.x); // наружу от контура
-      const o = p.clone().addScaledVector(nr, T);
-      for (const [pp, xo] of [[p, -W / 2], [p, W / 2], [o, -W / 2], [o, W / 2]]) { pos.push(xBelt + xo, pp.y, pp.x); uv.push(s / 9.525, xo > 0 ? 1 : 0); }
-    }
-    for (let i = 0; i < N; i++) {
-      const a = i * 4, b = (i + 1) * 4;
-      const quad = (p0, p1, p2, p3) => idx.push(p0, p2, p1, p0, p3, p2);
-      quad(a + 2, b + 2, b + 3, a + 3); // наружная
-      quad(a + 1, b + 1, b, a);         // внутренняя (зубья)
-      quad(a, b, b + 2, a + 2);
-      quad(a + 3, b + 3, b + 1, a + 1);
-    }
-    const bg = new THREE.BufferGeometry();
-    bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    bg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-    bg.setIndex(idx); bg.computeVertexNormals();
+    this.timingPath = beltPath(circles);
+    const { geo: bg, len: s } = beltGeometry(this.timingPath, xBelt, W, T);
     this.beltLen = s;
     const tex = beltTex.clone(); tex.needsUpdate = true; tex.repeat.set(1, 1);
     this.beltTex = tex;
@@ -727,7 +686,7 @@ export class Engine {
     // масляный фильтр
     const of = mesh(lathe([[0, 0], [0.4 * B, 0], [0.42 * B, 6], [0.42 * B, 0.95 * B], [0.36 * B, 1.05 * B], [0, 1.05 * B]], 36), new THREE.MeshStandardMaterial({ color: 0x1f4e9c, metalness: 0.4, roughness: 0.4 }), 'oilFilter');
     of.material.clippingPlanes = clipState.planes;
-    of.rotation.x = Math.PI / 2 + 0.5; of.position.set(-0.15 * d.pitch, d.yLiner0 - 18, -Wb / 2 - 4);
+    of.rotation.x = -(Math.PI / 2 + 0.3); of.position.set(-0.15 * d.pitch, d.yLiner0 - 18, -Wb / 2 - 2);
     this.add('block', of);
     // стартер у маховика
     const st = mesh(lathe([[0, -70], [0.36 * B, -70], [0.38 * B, -60], [0.38 * B, 40], [0.3 * B, 56], [0, 56]], 32), M.coil, 'starter');
@@ -823,7 +782,7 @@ export class Engine {
     this.crank.rotation.x = th;
     this.cams.in.rotation.x = (theta + s.vvt) * D2R / 2;
     this.cams.ex.rotation.x = th / 2;
-    this.beltTex.offset.x = -(this.rc * th) / 9.525;
+    this.beltTex.offset.x = (this.rc * th) / 9.525;
     for (const r of this.rollers) r.g.rotation.x = th * this.rc / r.r;
     this.alternator.rotation.x = th * 2.6;
     this.throttlePlate.rotation.z = (0.12 + s.throttle * 1.38);
@@ -879,6 +838,7 @@ export class Engine {
 
     // частицы
     if (s.flow && !this.exploded) this.updateFlow(s);
+    this.details.update(s, th, s.dTheta || 0);
     this.groups.flow.visible = s.flow && !this.exploded;
     this.groups.gas.visible = !this.exploded;
     M.exhaust.emissiveIntensity = s.heat;
@@ -921,5 +881,61 @@ export class Engine {
     this.root.removeFromParent();
   }
 }
+
+
+// Контур ремня вокруг шкивов (окружности в плоскости (z, y), обход против часовой стрелки)
+function beltPath(circles) {
+  const pts = [], tangents = [];
+  for (let i = 0; i < circles.length; i++) {
+    const A = circles[i], Bc = circles[(i + 1) % circles.length];
+    const dv = Bc.c.clone().sub(A.c), Dl = dv.length(), dh = dv.clone().divideScalar(Dl);
+    const psi = Math.acos((A.r - Bc.r) / Dl);
+    const ang = Math.atan2(dh.y, dh.x) - psi;
+    const nrm = new THREE.Vector2(Math.cos(ang), Math.sin(ang));
+    tangents.push([A.c.clone().addScaledVector(nrm, A.r), Bc.c.clone().addScaledVector(nrm, Bc.r)]);
+  }
+  for (let i = 0; i < circles.length; i++) {
+    const C = circles[i];
+    const pin = tangents[(i - 1 + circles.length) % circles.length][1], pout = tangents[i][0];
+    let a0 = Math.atan2(pin.y - C.c.y, pin.x - C.c.x), a1 = Math.atan2(pout.y - C.c.y, pout.x - C.c.x);
+    while (a1 < a0) a1 += Math.PI * 2;
+    const steps = Math.max(4, Math.ceil((a1 - a0) * C.r / 3));
+    for (let k = 0; k <= steps; k++) { const a = a0 + (a1 - a0) * k / steps; pts.push(new THREE.Vector2(C.c.x + C.r * Math.cos(a), C.c.y + C.r * Math.sin(a))); }
+    const [p0, p1] = tangents[i];
+    const ls = Math.ceil(p0.distanceTo(p1) / 4);
+    for (let k = 1; k < ls; k++) pts.push(p0.clone().lerp(p1, k / ls));
+  }
+  return pts;
+}
+
+// Лента ремня шириной W вдоль X и толщиной T наружу от контура
+function beltGeometry(pts, x, W, T) {
+  const pos = [], uv = [], idx = [];
+  let s = 0;
+  const N = pts.length;
+  for (let i = 0; i <= N; i++) {
+    const p = pts[i % N], q = pts[(i + 1) % N], pr = pts[(i - 1 + N) % N];
+    if (i > 0) s += p.distanceTo(pts[(i - 1) % N]);
+    const t = q.clone().sub(pr).normalize();
+    const nr = new THREE.Vector2(t.y, -t.x);
+    const o = p.clone().addScaledVector(nr, T);
+    for (const [pp, xo] of [[p, -W / 2], [p, W / 2], [o, -W / 2], [o, W / 2]]) { pos.push(x + xo, pp.y, pp.x); uv.push(s / 9.525, xo > 0 ? 1 : 0); }
+  }
+  for (let i = 0; i < N; i++) {
+    const a = i * 4, b = (i + 1) * 4;
+    const quad = (p0, p1, p2, p3) => idx.push(p0, p2, p1, p0, p3, p2);
+    quad(a + 2, b + 2, b + 3, a + 3);
+    quad(a + 1, b + 1, b, a);
+    quad(a, b, b + 2, a + 2);
+    quad(a + 3, b + 3, b + 1, a + 1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  return { geo, len: s };
+}
+
+export { lathe, cyl, mesh, curve, extrudeXZ, extrudeYZ, roundRect, beltPath, beltGeometry };
 
 function holeFrom(shape) { const p = new THREE.Path(); p.curves = shape.curves; p.currentPoint = shape.currentPoint; return p; }
