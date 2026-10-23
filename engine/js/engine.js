@@ -14,6 +14,8 @@ export const LAYOUTS = {
 
 export const FLOOR_Y = -560; // мм, пол лаборатории относительно оси коленвала
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const plainGray = new THREE.MeshStandardMaterial({ color: 0x8a9098, roughness: 0.5, metalness: 0.2 });
+const lateClip = [plainGray];
 const D2R = Math.PI / 180;
 
 // ---------- размеры ----------
@@ -195,7 +197,7 @@ function clipShader(opts) {
   shaderMats.push(m);
   return m;
 }
-onClipChange((planes, inter) => { for (const m of shaderMats) { m.clippingPlanes = planes; m.clipIntersection = inter; m.needsUpdate = true; } });
+onClipChange((planes, inter) => { for (const m of [...shaderMats, ...lateClip]) { m.clippingPlanes = planes; m.clipIntersection = inter; m.needsUpdate = true; } });
 
 // =====================================================================
 export class Engine {
@@ -395,40 +397,122 @@ export class Engine {
   }
 
   // ---------------- головка блока ----------------
+  // Головка собрана как настоящая отливка: стенки, камеры сгорания, каналы с толстыми
+  // стенками, колодцы толкателей, направляющие, свечные колодцы, рубашка, постели валов.
+  // Каждая часть — замкнутое тело, поэтому в разрезе видны стенки и пустоты.
   buildHead() {
-    const d = this.d, { Lb, Wh, H0, H1, xs, B, vIn, vEx, R0 } = d;
-    const headTop = H1;
-    const s = roundRect(Lb, Wh, 16);
-    this.add('head', mesh(extrudeXZ(s, H0, headTop, 3), M.head, 'head'));
-    // постели распредвалов
+    const d = this.d, { Lb, Wh, H0, H1, xs, B, R, vIn, vEx, R0, hd } = d;
+    const tW = 7;                       // толщина наружных стенок
+    const yDeck = H0 + hd + 14;         // верх плиты с камерами сгорания
+    const add = (geo, mat = M.head, part = 'head') => this.add('head', mesh(geo, mat, part));
+    const roofDeform = (geo, xc) => {
+      const p = geo.attributes.position;
+      for (let k = 0; k < p.count; k++) if (Math.abs(p.getY(k) - H0) < 0.01) {
+        const z = p.getZ(k), x = p.getX(k) - xc;
+        if (Math.hypot(x, z) <= R + 0.01) p.setY(k, H0 + hd * (1 - Math.min(1, Math.abs(z) / R)));
+      }
+      p.needsUpdate = true; geo.computeVertexNormals();
+      return geo;
+    };
+    // каналы: сначала считаем путь, по нему же пойдут частицы и стрелки
+    const rIn = 0.165 * B, rInB = 0.12 * B, rEx = 0.14 * B, rExB = 0.11 * B, wall = 4.5;
+    const yPin = H0 + 62, yPex = H0 + 50;
+    this.ports = xs.map((x) => {
+      const split = V3(x, vIn.y + 34, vIn.z - 20), merge = V3(x, vEx.y + 34, vEx.z + 20);
+      const inMain = [V3(x, yPin + 1, -Wh / 2 - 1), V3(x, H0 + 56, -Wh / 2 + 22), split];
+      const exMain = [merge, V3(x, yPex, Wh / 2 - 22), V3(x, yPex, Wh / 2 + 1)];
+      const throat = (v, s) => V3(x + s * v.xo, v.y, v.z).addScaledVector(v.axis, 5);
+      const inBr = [-1, 1].map((s) => [split, V3(x + s * vIn.xo * 0.7, vIn.y + 20, vIn.z - 12), throat(vIn, s)]);
+      const exBr = [-1, 1].map((s) => [throat(vEx, s), V3(x + s * vEx.xo * 0.7, vEx.y + 20, vEx.z + 12), merge]);
+      return { inMain, exMain, inBr, exBr };
+    });
+
+    // плита с камерами сгорания (между цилиндрами и по краям)
+    const deck = roundRect(Lb, Wh, 16);
+    xs.forEach((x) => deck.holes.push(circlePath(x, 0, R)));
+    add(extrudeXZ(deck, H0, yDeck));
+    // свод каждой камеры: шатёр с отверстиями клапанов и свечи
+    xs.forEach((x) => {
+      const sh = new THREE.Shape(); sh.absarc(x, 0, R, 0, Math.PI * 2, false);
+      for (const v of [vIn, vEx]) for (const s of [-1, 1]) sh.holes.push(circlePath(x + s * v.xo, -v.z, v.rh + 0.4));
+      sh.holes.push(circlePath(x, 0, 7.4));
+      add(roofDeform(extrudeXZ(sh, H0, yDeck), x));
+    });
+    // наружные стенки с окнами каналов
+    const sideWall = (zFace, yPort, rHole) => {
+      const shp = new THREE.Shape(); shp.moveTo(-Lb / 2 + 8, H0); shp.lineTo(Lb / 2 - 8, H0); shp.lineTo(Lb / 2 - 8, H1); shp.lineTo(-Lb / 2 + 8, H1); shp.closePath();
+      xs.forEach((x) => shp.holes.push(circlePath(x, yPort, rHole)));
+      const g = new THREE.ExtrudeGeometry(shp, { depth: tW, bevelEnabled: false, curveSegments: 32 });
+      g.translate(0, 0, zFace < 0 ? zFace : zFace - tW);
+      return g;
+    };
+    add(sideWall(-Wh / 2, yPin, rIn + wall + 0.5));
+    add(sideWall(Wh / 2, yPex, rEx + wall + 0.5));
+    for (const sx of [-1, 1]) {
+      const ew = new THREE.Shape(); const w = Wh / 2 - tW, top = Math.min(vIn.cam.y, vEx.cam.y) - 0.17 * B;
+      ew.moveTo(-w, H0); ew.lineTo(w, H0); ew.lineTo(w, top); ew.lineTo(-w, top); ew.closePath();
+      const m = mesh(extrudeYZ(ew, 10), M.head, 'head'); m.position.x = sx * (Lb / 2 - 5); this.add('head', m);
+    }
+    // фланцы каналов снаружи
+    const ring = (x, y, z0, z1, r0, r1) => {
+      const sh = new THREE.Shape(); sh.absarc(x, y, r1, 0, Math.PI * 2, false); sh.holes.push(circlePath(x, y, r0));
+      const g = new THREE.ExtrudeGeometry(sh, { depth: Math.abs(z1 - z0), bevelEnabled: true, bevelThickness: 1, bevelSize: 1, bevelSegments: 2, curveSegments: 32 });
+      g.translate(0, 0, Math.min(z0, z1)); return g;
+    };
+    xs.forEach((x) => { add(ring(x, yPin, -Wh / 2 - 7, -Wh / 2, rIn + 0.5, rIn + 12)); add(ring(x, yPex, Wh / 2, Wh / 2 + 7, rEx + 0.5, rEx + 12)); });
+    // каналы с толстыми стенками
+    this.ports.forEach((pt) => {
+      add(thickTube(curve(pt.inMain), rIn, wall, 40, 24));
+      add(thickTube(curve(pt.exMain), rEx, wall, 40, 24));
+      for (const b of pt.inBr) add(thickTube(curve(b), rInB, wall - 1, 24, 20));
+      for (const b of pt.exBr) add(thickTube(curve(b), rExB, wall - 1, 24, 20));
+    });
+    // свечные колодцы
+    const plugTop = H1 + 2 + d.coverH;
+    xs.forEach((x) => { const t = mesh(lathe([[11, yDeck - 2], [15.5, yDeck - 2], [15.5, plugTop - 1], [11, plugTop - 1]], 32), M.head, 'head'); t.position.x = x; this.add('head', t); });
+    // рубашка охлаждения головки
+    const wj = roundRect(Lb - 2 * tW - 6, Wh - 2 * tW - 6, 10);
+    xs.forEach((x) => wj.holes.push(circlePath(x, 0, 16)));
+    const cool = mesh(extrudeXZ(wj, yDeck + 1, yDeck + 15), M.coolant, 'coolant', false); cool.renderOrder = 2; this.add('head', cool);
+    // постели распредвалов: перегородки с полукруглыми вырезами и крышки
+    const jr = 0.155 * B + 0.6;
     for (let j = 0; j <= d.n; j++) {
       const x = xs[0] - d.pitch / 2 + j * d.pitch;
+      const w = Wh / 2 - tW, y0 = Math.min(vIn.cam.y, vEx.cam.y) - 0.17 * B - 30;
+      const b = new THREE.Shape();
+      b.moveTo(-w, y0); b.lineTo(w, y0); b.lineTo(w, vEx.cam.y);
+      b.lineTo(vEx.cam.z + jr, vEx.cam.y); b.absarc(vEx.cam.z, vEx.cam.y, jr, 0, Math.PI, true);
+      b.lineTo(vIn.cam.z + jr, vIn.cam.y); b.absarc(vIn.cam.z, vIn.cam.y, jr, 0, Math.PI, true);
+      b.lineTo(-w, vIn.cam.y); b.closePath();
+      const bh = mesh(extrudeYZ(b, 14), M.head, 'head'); bh.position.x = x; this.add('head', bh);
       for (const v of [vIn, vEx]) {
-        const cap = mesh(new THREE.BoxGeometry(15, 13, 2 * R0 + 14), M.head, 'head');
-        cap.position.set(x, headTop + 5, v.cam.z);
-        this.add('head', cap);
-        for (const s2 of [-1, 1]) { const b = mesh(cyl(3.2, 6, 'y', 10), M.steel, 'head'); b.position.set(x, headTop + 13, v.cam.z + s2 * (R0 + 4)); this.add('head', b); }
+        const cw = jr + 10, c = new THREE.Shape();
+        c.moveTo(v.cam.z - cw, v.cam.y); c.lineTo(v.cam.z - jr, v.cam.y); c.absarc(v.cam.z, v.cam.y, jr, Math.PI, 0, true);
+        c.lineTo(v.cam.z + cw, v.cam.y); c.lineTo(v.cam.z + cw, v.cam.y + jr + 6); c.lineTo(v.cam.z - cw, v.cam.y + jr + 6); c.closePath();
+        const cap = mesh(extrudeYZ(c, 14, 0.8), M.head, 'head'); cap.position.x = x; this.add('head', cap);
+        for (const s2 of [-1, 1]) {
+          const bolt = mesh(new THREE.CylinderGeometry(4.6, 4.6, 5, 6), M.steel, 'head'); bolt.position.set(x, v.cam.y + jr + 8.5, v.cam.z + s2 * (jr + 5)); this.add('head', bolt);
+        }
       }
-    }
-    // приливы под впускной/выпускной фланцы
-    for (const x of xs) {
-      for (const [z, y, rr] of [[-Wh / 2, H0 + 62, 0.2 * B], [Wh / 2, H0 + 50, 0.19 * B]]) {
-        const boss = mesh(cyl(rr + 6, 10, 'z', 28), M.head, 'head');
-        boss.position.set(x, y, z + Math.sign(z) * 3);
-        this.add('head', boss);
+      // болты головки блока с бобышками
+      for (const s2 of [-1, 1]) {
+        const z = s2 * (Wh / 2 - 22), yb = yDeck + 34;
+        const boss = mesh(cyl(9, yb - yDeck, 'y', 20), M.head, 'head'); boss.position.set(x, (yb + yDeck) / 2, z); this.add('head', boss);
+        const hb = mesh(new THREE.CylinderGeometry(7.5, 7.5, 7, 12), M.steel, 'head'); hb.position.set(x, yb + 3.5, z); this.add('head', hb);
+        const wsh = mesh(cyl(10, 1.6, 'y', 20), M.steel, 'head'); wsh.position.set(x, yb + 0.8, z); this.add('head', wsh);
       }
     }
     // свечи зажигания
     this.plugs = [];
-    xs.forEach((x, i) => {
-      const tip = H0 + d.hd - 1.5;
+    xs.forEach((x) => {
+      const tip = H0 + hd - 1.5;
       const g = new THREE.Group();
       g.position.set(x, tip, 0);
       g.add(mesh(cyl(1.1, 3, 'y', 8), M.steel, 'plug'));
-      const thread = mesh(lathe([[0, 1.5], [6.3, 1.5], [7, 4], [6.3, 6], [7, 8], [6.3, 10], [7, 12], [6.3, 14], [7, 16], [6.3, 18.5], [0, 18.5]], 24), M.steel, 'plug');
-      g.add(thread);
+      const ground = mesh(new THREE.BoxGeometry(2, 4, 2), M.steel, 'plug'); ground.position.set(0, -1.5, 3.2); g.add(ground);
+      g.add(mesh(lathe([[0, 1.5], [6.3, 1.5], [7, 4], [6.3, 6], [7, 8], [6.3, 10], [7, 12], [6.3, 14], [7, 16], [6.3, 18.5], [0, 18.5]], 24), M.steel, 'plug'));
       const hex = mesh(new THREE.CylinderGeometry(10.2, 10.2, 12, 6), M.steel, 'plug'); hex.position.y = 24; g.add(hex);
-      const ins = mesh(lathe([[0, 30], [6.8, 30], [6.8, 50], [5.2, 58], [5.2, 74], [0, 74]], 24), M.ceramic, 'plug'); g.add(ins);
+      g.add(mesh(lathe([[0, 30], [6.8, 30], [6.8, 48], [6.0, 50], [6.8, 52], [6.0, 54], [6.8, 56], [5.2, 58], [5.2, 72], [3, 72], [3, 76], [0, 76]], 24), M.ceramic, 'plug'));
       this.add('head', g);
       this.plugs.push(g);
     });
@@ -450,13 +534,21 @@ export class Engine {
     const sh = springTop0 - springBase;
     helix.getPoint = (t, out = new THREE.Vector3()) => out.set(sr * Math.cos(t * coils * 2 * Math.PI), t * sh, sr * Math.sin(t * coils * 2 * Math.PI));
     const springGeo = new THREE.TubeGeometry(helix, 220, 1.7, 8, false);
-    const springMat = new THREE.MeshStandardMaterial({ color: 0x3f6fb8, metalness: 0.6, roughness: 0.38, side: THREE.DoubleSide });
+    const springMat = new THREE.MeshStandardMaterial({ color: 0x34383d, metalness: 0.75, roughness: 0.34, side: THREE.DoubleSide });
     springMat.clippingPlanes = clipState.planes;
     this.springMat = springMat;
     const bucketGeo = lathe([[0, Ls + 12.5], [0.165 * B, Ls + 12.5], [0.165 * B, Ls + 0.5 - 14], [0.165 * B - 1.6, Ls + 0.5 - 14], [0.165 * B - 1.6, Ls + 10], [0, Ls + 10]], 36);
     const retGeo = lathe([[0, Ls - 9], [0.14 * B, Ls - 9], [0.08 * B, Ls - 3], [0, Ls - 3]], 24);
     const valveGeo = { in: mkValve(vIn), ex: mkValve(vEx) };
     const up = V3(0, 1, 0);
+    // неподвижные части в головке: колодец толкателя, направляющая втулка, колпачок, шайба, седло
+    const rb = 0.165 * B, rs = 0.035 * B;
+    const boreGeo = lathe([[rb + 0.6, springBase - 3], [rb + 5.5, springBase - 3], [rb + 5.5, Ls + 6], [rb + 0.6, Ls + 6]], 36);
+    const guideGeo = lathe([[rs + 0.25, 16], [rs + 3.6, 16], [rs + 3.6, springBase - 1], [rs + 0.25, springBase - 1]], 20);
+    const sealGeo = lathe([[rs + 0.2, springBase - 1], [rs + 5.2, springBase - 1], [rs + 4.4, springBase + 5], [rs + 0.2, springBase + 5]], 20);
+    const washerGeo = lathe([[rs + 5.4, springBase - 1.2], [0.125 * B + 3, springBase - 1.2], [0.125 * B + 3, springBase], [rs + 5.4, springBase]], 32);
+    const seatGeo = (v) => lathe([[v.rh - 1.4, -0.6], [v.rh + 1.8, -0.6], [v.rh + 1.8, 3], [v.rh - 0.6, 3]], 36);
+    const seatMat = M.iron, guideMat = cutMat({ color: 0x9c7b4f, metalness: 0.85, roughness: 0.42 }, 0xe8c07a);
     xs.forEach((x, i) => {
       for (const [v, type] of [[vIn, 'in'], [vEx, 'ex']]) {
         for (const s of [-1, 1]) {
@@ -467,6 +559,7 @@ export class Engine {
           moving.add(mesh(valveGeo[type], type === 'in' ? M.valve : M.valveEx, type === 'in' ? 'valveIn' : 'valveEx'));
           moving.add(mesh(retGeo, M.steel, 'spring'), mesh(bucketGeo, M.bucket, 'bucket'));
           frame.add(moving);
+          frame.add(mesh(boreGeo, M.head, 'head'), mesh(guideGeo, guideMat, 'valveGuide'), mesh(sealGeo, M.rubber, 'valveSeal'), mesh(washerGeo, M.steel, 'spring'), mesh(seatGeo(v), seatMat, 'valveSeat'));
           const sp = mesh(springGeo, springMat, 'spring');
           sp.position.y = springBase;
           frame.add(sp);
@@ -511,35 +604,42 @@ export class Engine {
   }
 
   buildCover() {
-    const d = this.d;
-    const s = roundRect(d.Lb - 12, d.Wh - 14, 26);
-    this.add('cover', mesh(extrudeXZ(s, d.H1 + 2, d.H1 + 2 + d.coverH, 9), M.cover, 'cover'));
-    // фланец крышки
-    this.add('cover', mesh(extrudeXZ(roundRect(d.Lb - 6, d.Wh - 8, 26), d.H1, d.H1 + 7), M.aluminum, 'cover'));
-    const top = d.H1 + 2 + d.coverH;
-    // катушки зажигания
+    const d = this.d, top = d.H1 + 2 + d.coverH;
+    // полая крышка: стенки 5 мм и верхняя панель с окнами под катушки
+    const outer = () => roundRect(d.Lb - 12, d.Wh - 14, 26);
+    const walls = outer(); walls.holes.push(holeFrom(roundRect(d.Lb - 22, d.Wh - 24, 21)));
+    this.add('cover', mesh(extrudeXZ(walls, d.H1 + 2, top - 6), M.cover, 'cover'));
+    const lid = outer(); d.xs.forEach((x) => lid.holes.push(circlePath(x, 0, 16.5)));
+    this.add('cover', mesh(extrudeXZ(lid, top - 10, top, 4), M.cover, 'cover'));
+    // маслоотражатель внутри
+    const baffle = mesh(new THREE.BoxGeometry(d.Lb - 40, 3, d.Wh * 0.3), M.cover, 'cover'); baffle.position.set(0, top - 16, -d.Wh * 0.25); this.add('cover', baffle);
+    // фланец и резиновая прокладка
+    this.add('cover', mesh(extrudeXZ(roundRect(d.Lb - 6, d.Wh - 8, 26), d.H1, d.H1 + 5), M.aluminum, 'cover'));
+    this.add('cover', mesh(extrudeXZ((() => { const g = roundRect(d.Lb - 10, d.Wh - 12, 24); g.holes.push(holeFrom(roundRect(d.Lb - 20, d.Wh - 22, 20))); return g; })(), d.H1 + 5, d.H1 + 7), M.rubber, 'cover'));
+    // катушки «карандашного» типа: наконечник на свече, корпус в колодце, разъём сверху
+    const plugTop = d.H0 + d.hd + 72;
+    const coilGeo = lathe([[0, plugTop], [8.6, plugTop], [8.6, plugTop + 26], [10.6, plugTop + 30], [10.6, top + 2], [12.5, top + 4], [12.5, top + 8], [0, top + 8]], 28);
     d.xs.forEach((x) => {
-      const boot = mesh(cyl(9, top - (d.H0 + d.hd + 60), 'y', 20), M.rubber, 'coil');
-      boot.position.set(x, (top + d.H0 + d.hd + 60) / 2, 0);
-      this.add('cover', boot);
-      const head = mesh(new THREE.BoxGeometry(34, 22, 52), M.coil, 'coil');
-      head.position.set(x, top + 10, 4);
-      this.add('cover', head);
-      const plug = mesh(new THREE.BoxGeometry(18, 12, 14), M.coil, 'coil');
-      plug.position.set(x, top + 12, 34);
-      this.add('cover', plug);
+      const body = mesh(coilGeo, M.coil, 'coil'); body.position.x = x; this.add('cover', body);
+      const boot = mesh(lathe([[0, plugTop - 2], [9.6, plugTop - 2], [9.6, plugTop + 24], [0, plugTop + 24]], 24), M.rubber, 'coil'); boot.position.x = x; this.add('cover', boot);
+      const head = mesh(extrudeXZ(roundRect(30, 44, 8), top + 6, top + 26, 3), M.coil, 'coil'); head.position.set(x, 0, 4); this.add('cover', head);
+      const conn = mesh(new THREE.BoxGeometry(16, 13, 16), M.coil, 'coil'); conn.position.set(x, top + 18, 33); this.add('cover', conn);
+      const latch = mesh(new THREE.BoxGeometry(10, 3, 8), plainGray, 'coil'); latch.position.set(x, top + 25, 33); this.add('cover', latch);
+      const bolt = mesh(new THREE.CylinderGeometry(4, 4, 5, 6), M.steel, 'coil'); bolt.position.set(x + 11, top + 28, -12); this.add('cover', bolt);
     });
-    const cap = mesh(cyl(18, 14, 'y', 32), M.coil, 'cover');
-    cap.position.set(d.xs[0] - d.pitch * 0.5 + 10, top + 6, -d.Wh * 0.22);
+    const cap = mesh(lathe([[0, top - 2], [19, top - 2], [19, top + 10], [16, top + 14], [0, top + 14]], 32), M.coil, 'cover');
+    cap.position.set(d.xs[0] - d.pitch * 0.5 + 10, 0, -d.Wh * 0.22);
     this.add('cover', cap);
-    this.anchors.push({ key: 'cover', pos: V3(d.xs[d.n - 1], top + 4, -d.Wh * 0.3) }, { key: 'coil', pos: V3(d.xs[0], top + 22, 4) });
+    this.anchors.push({ key: 'cover', pos: V3(d.xs[d.n - 1], top + 4, -d.Wh * 0.3) }, { key: 'coil', pos: V3(d.xs[0], top + 24, 4) });
   }
 
   // ---------------- впуск ----------------
   buildIntake() {
     const d = this.d, { B, Wh, H0, xs, vIn } = d;
     const zP = -(Wh / 2 + 95), yP = H0 + 28, rP = 40;
-    const plen = mesh(lathe([[0, -(d.Lb / 2 - 30)], [rP * 0.6, -(d.Lb / 2 - 30)], [rP, -(d.Lb / 2 - 48)], [rP, d.Lb / 2 - 48], [rP * 0.6, d.Lb / 2 - 30], [0, d.Lb / 2 - 30]], 48), M.plenum, 'intake');
+    const pa = d.Lb / 2 - 30, pb = d.Lb / 2 - 48, t = 4;
+    // ресивер — полый, со стенкой 4 мм
+    const plen = mesh(lathe([[0, -pa], [rP * 0.6, -pa], [rP, -pb], [rP, pb], [rP * 0.6, pa], [0, pa], [0, pa - t], [rP * 0.6 - t, pa - t], [rP - t, pb], [rP - t, -pb], [rP * 0.6 - t, -pa + t], [0, -pa + t]], 48), M.plenum, 'intake');
     plen.rotation.z = Math.PI / 2; plen.position.set(0, yP, zP);
     this.add('intake', plen);
     // дроссельный узел
@@ -558,16 +658,13 @@ export class Engine {
     this.intakePaths = [];
     const rr = 0.165 * B, rbr = 0.12 * B;
     xs.forEach((x, i) => {
-      const split = V3(x, vIn.y + 34, vIn.z - 20);
-      const main = [V3(x, yP + 20, zP + 8), V3(x, yP + 80, zP + 20), V3(x, H0 + 112, -Wh / 2 - 48), V3(x, H0 + 66, -Wh / 2 - 6), V3(x, H0 + 56, -Wh / 2 + 22), split];
+      const port = this.ports[i];
+      const main = [V3(x, yP + 20, zP + 8), V3(x, yP + 80, zP + 20), V3(x, H0 + 112, -Wh / 2 - 48), V3(x, H0 + 70, -Wh / 2 - 12), V3(x, H0 + 63, -Wh / 2 + 1)];
       const runner = mesh(new THREE.TubeGeometry(curve(main), 80, rr, 24, false), M.intake, 'intake');
       this.add('intake', runner);
-      const branches = [-1, 1].map((s) => {
-        const seat = V3(x + s * vIn.xo, vIn.y, vIn.z).addScaledVector(vIn.axis, 5);
-        const pts = [split, V3(x + s * vIn.xo * 0.7, vIn.y + 20, vIn.z - 12), seat];
-        this.add('intake', mesh(new THREE.TubeGeometry(curve(pts), 30, rbr, 20, false), M.intake, 'intake'));
-        return new Path([...main, ...pts.slice(1)]);
-      });
+      void rbr;
+      // путь газа: патрубок → канал в головке → к своему клапану
+      const branches = port.inBr.map((b) => new Path([...main.slice(0, 4), ...port.inMain, ...b.slice(1)]));
       this.intakePaths[i] = branches;
       // форсунка
       const inj = mesh(cyl(5.5, 46, 'y', 16), M.coil, 'injector');
@@ -590,14 +687,14 @@ export class Engine {
     xs.forEach((x, i) => {
       const merge = V3(x, vEx.y + 34, vEx.z + 20);
       const tail = [merge, V3(x, H0 + 50, Wh / 2 - 22), V3(x, H0 + 50, Wh / 2 + 6), V3(x, H0 + 30, Wh / 2 + 44), V3(x + 8, yC + 70, zC - 4), V3(x + 30, yC + 8, zC), V3(xEnd, yC, zC), V3(xEnd + 70, yC - 30, zC), V3(xEnd + 95, FLOOR_Y + 260, zC)];
-      this.add('exhaust', mesh(new THREE.TubeGeometry(curve(tail.slice(0, 6)), 80, re, 22, false), M.exhaust, 'exhaust'));
-      this.exhaustPaths[i] = [-1, 1].map((s) => {
-        const seat = V3(x + s * vEx.xo, vEx.y, vEx.z).addScaledVector(vEx.axis, 5);
-        const pts = [seat, V3(x + s * vEx.xo * 0.7, vEx.y + 20, vEx.z + 12), merge];
-        this.add('exhaust', mesh(new THREE.TubeGeometry(curve(pts), 30, 0.11 * B, 18, false), M.exhaust, 'exhaust'));
-        return new Path([...pts, ...tail.slice(1)]);
-      });
-      const fl = mesh(new THREE.BoxGeometry(46, 40, 8), M.steel, 'exhaust'); fl.position.set(x, H0 + 50, Wh / 2 + 8); this.add('exhaust', fl);
+      this.add('exhaust', mesh(new THREE.TubeGeometry(curve([V3(x, H0 + 50, Wh / 2 - 1), ...tail.slice(2, 6)]), 80, re, 22, false), M.exhaust, 'exhaust'));
+      const port = this.ports[i];
+      this.exhaustPaths[i] = port.exBr.map((b) => new Path([...b, ...tail.slice(1)]));
+      // фланец приёмной трубы с шпильками
+      const fl = new THREE.Shape(); fl.absarc(0, 0, re + 14, 0, Math.PI * 2, false); fl.holes.push(circlePath(0, 0, re + 0.5));
+      const flg = new THREE.ExtrudeGeometry(fl, { depth: 6, bevelEnabled: false, curveSegments: 32 }); flg.translate(x, H0 + 50, Wh / 2 + 7);
+      this.add('exhaust', mesh(flg, M.steel, 'exhaust'));
+      for (const sx of [-1, 1]) { const nut = mesh(new THREE.CylinderGeometry(5.5, 5.5, 6, 6), M.brass, 'exhaust'); nut.rotation.x = Math.PI / 2; nut.position.set(x + sx * (re + 8), H0 + 50, Wh / 2 + 16); this.add('exhaust', nut); }
     });
     const coll = [V3(xs[0] - 10, yC, zC), V3(xEnd, yC, zC), V3(xEnd + 70, yC - 30, zC), V3(xEnd + 95, FLOOR_Y + 260, zC)];
     this.add('exhaust', mesh(new THREE.TubeGeometry(curve(coll), 80, rc, 28, false), M.exhaust, 'exhaust'));
@@ -693,7 +790,7 @@ export class Engine {
     this.alternator = ap;
     // масляный фильтр
     const of = mesh(lathe([[0, 0], [0.4 * B, 0], [0.42 * B, 6], [0.42 * B, 0.95 * B], [0.36 * B, 1.05 * B], [0, 1.05 * B]], 36), new THREE.MeshStandardMaterial({ color: 0x1f4e9c, metalness: 0.4, roughness: 0.4 }), 'oilFilter');
-    of.material.clippingPlanes = clipState.planes;
+    of.material.clippingPlanes = clipState.planes; shaderMats.push(of.material);
     of.rotation.x = -(Math.PI / 2 + 0.3); of.position.set(-0.15 * d.pitch, d.yLiner0 - 18, -Wb / 2 - 2);
     this.add('block', of);
     // стартер у маховика
@@ -702,7 +799,8 @@ export class Engine {
     this.add('block', st);
     // щуп
     const ds = mesh(cyl(4, 180, 'y', 10), M.steel, 'dipstick'); ds.position.set(xFront + 70, d.yLiner0 + 40, -Wb / 2 - 10); ds.rotation.x = -0.12;
-    const dh = mesh(new THREE.TorusGeometry(10, 3, 8, 20), new THREE.MeshStandardMaterial({ color: 0xffb400, roughness: 0.5 }), 'dipstick');
+    const dhm = new THREE.MeshStandardMaterial({ color: 0xffb400, roughness: 0.5 }); dhm.clippingPlanes = clipState.planes; shaderMats.push(dhm);
+    const dh = mesh(new THREE.TorusGeometry(10, 3, 8, 20), dhm, 'dipstick');
     dh.position.set(xFront + 70, d.yLiner0 + 140, -Wb / 2 - 21);
     this.add('block', ds); this.add('block', dh);
     this.anchors.push({ key: 'alternator', pos: V3(xFront + 30, d.yLiner0 + 12 + 0.7 * B, -(Wb / 2 + 0.72 * B)) });
@@ -890,6 +988,31 @@ export class Engine {
   }
 }
 
+
+
+// Труба с толщиной стенки: наружная и внутренняя поверхности + торцы — замкнутое тело
+function thickTube(c, rIn, wall, segs, radial) {
+  const outer = new THREE.TubeGeometry(c, segs, rIn + wall, radial, false);
+  const inner = new THREE.TubeGeometry(c, segs, rIn, radial, false);
+  const po = outer.attributes.position.array, pi = inner.attributes.position.array;
+  const nv = po.length / 3;
+  const pos = new Float32Array(po.length * 2); pos.set(po); pos.set(pi, po.length);
+  const idx = [];
+  const io = outer.index.array, ii = inner.index.array;
+  for (let k = 0; k < io.length; k++) idx.push(io[k]);
+  for (let k = 0; k < ii.length; k += 3) idx.push(ii[k] + nv, ii[k + 2] + nv, ii[k + 1] + nv);
+  const R1 = radial + 1;
+  for (const [ring, flip] of [[0, true], [segs, false]]) {
+    for (let j = 0; j < radial; j++) {
+      const a = ring * R1 + j, b = a + 1, c2 = b + nv, d2 = a + nv;
+      if (flip) idx.push(a, b, c2, a, c2, d2); else idx.push(a, c2, b, a, d2, c2);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
 
 // Контур ремня вокруг шкивов (окружности в плоскости (z, y), обход против часовой стрелки)
 function beltPath(circles) {
