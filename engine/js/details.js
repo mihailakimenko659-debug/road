@@ -115,9 +115,9 @@ export function addDetails(e) {
 
   // --- юбки поршней с антифрикционным покрытием ---
   const Rp = d.R - 0.3, yt = d.ch, yb = d.ch - d.pistonH;
-  const coatMat = plain({ color: 0x3a3d43, roughness: 0.72, metalness: 0.2 });
-  const coat = (start) => new THREE.LatheGeometry([new THREE.Vector2(Rp + 0.08, yb + 4), new THREE.Vector2(Rp + 0.08, yt - 21)], 24, start, 1.5);
-  for (const c of e.cyl) for (const st of [-0.75, Math.PI - 0.75]) c.piston.add(mesh(coat(st), coatMat, 'piston'));
+  const coatMat = plain({ color: 0x5d6168, roughness: 0.82, metalness: 0.25 });
+  const coat = (start) => new THREE.LatheGeometry([new THREE.Vector2(Rp + 0.05, yb + 8), new THREE.Vector2(Rp + 0.05, yt - 25)], 20, start, 1.1);
+  for (const c of e.cyl) for (const st of [-0.55, Math.PI - 0.55]) c.piston.add(mesh(coat(st), coatMat, 'piston'));
 
   // --- топливная рампа и форсунки ---
   const yr = H0 + 128, zr = -Wh / 2 - 40;

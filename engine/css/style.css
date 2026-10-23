@@ -155,6 +155,33 @@ select { background: #1c2330; border: 1px solid var(--line); border-radius: 8px;
 .angle span { font-size: 14px; font-weight: 600; }
 .angle small { color: var(--muted); font-size: 10.5px; }
 
+/* ---------- разборка и осмотр детали ---------- */
+.big-btn { border: 0; border-radius: 10px; padding: 10px 14px; background: var(--cool); color: #0b1620; font-weight: 800; font-family: var(--display); letter-spacing: 0.02em; }
+.big-btn:hover { filter: brightness(1.08); }
+.big-btn.small { padding: 7px 12px; font-size: 12px; }
+.ghost { border: 1px solid var(--line); background: var(--panel-2); border-radius: 10px; padding: 7px 12px; font-weight: 600; }
+.tray { position: fixed; z-index: 3; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); width: min(760px, calc(100vw - 720px));
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); backdrop-filter: blur(14px); padding: 10px 12px; display: grid; gap: 8px; box-shadow: 0 12px 40px rgba(20,28,40,.2); }
+.tray-head { display: flex; align-items: center; gap: 10px; }
+.tray-head b { font-family: var(--display); font-size: 13px; white-space: nowrap; }
+.tray-head span { color: var(--muted); font-size: 12px; flex: 1; min-width: 0; }
+.tray-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.tray-list button { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 600; }
+.tray-list button:hover, .tray-list button.on { background: #eef2f7; color: #141a22; }
+.card { position: fixed; z-index: 3; top: calc(22px + env(safe-area-inset-top, 0px)); left: max(26px, env(safe-area-inset-left, 0px)); width: 340px; max-height: calc(100% - 140px); overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); backdrop-filter: blur(14px); padding: 16px 18px; box-shadow: 0 12px 40px rgba(20,28,40,.2); }
+.kicker.light { color: var(--cool); }
+.card h2 { margin: 6px 0 8px; font: 800 26px/1.05 var(--display); text-wrap: balance; }
+.card-text { margin: 0 0 12px; color: #d3dae4; }
+.card-specs { width: 100%; border-collapse: collapse; font-size: 12px; }
+.card-specs td { padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.card-specs td:first-child { color: var(--muted); padding-right: 10px; }
+.card-specs td:last-child { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+.card-note { color: var(--muted); font-size: 11.5px; margin: 10px 0; }
+.card-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+body[data-mode=inspect] .hero, body[data-mode=inspect] .gauges, body[data-mode=inspect] .tray { display: none; }
+body[data-mode=parts] .gauges, body[data-mode=parts] .now { display: none; }
+
 /* ---------- выноски ---------- */
 #leaders { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
 #leaders line { stroke: rgba(255, 255, 255, 0.85); stroke-width: 1.2; }
@@ -190,5 +217,8 @@ select { background: #1c2330; border: 1px solid var(--line); border-radius: 8px;
   .angle, #soundBtn, .dock .sep, #back, #fwd { display: none; }
   .dock .seg.dark button { padding: 6px 8px; font-size: 11.5px; }
   .co { padding: 5px 8px; } .co span { display: none; }
+  .tray { width: auto; left: 12px; right: 12px; transform: none; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+  .tray-head span { display: none; }
+  .card { left: 12px; right: 12px; width: auto; top: auto; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); max-height: 45%; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

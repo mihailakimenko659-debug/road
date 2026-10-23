@@ -110,6 +110,7 @@
       <div id="shell" class="seg" role="radiogroup" aria-label="Корпус">
         <button data-v="metal" class="on">Металл</button><button data-v="glass">Стекло</button>
       </div>
+      <button id="disasm" class="big-btn">Разобрать на детали</button>
       <label class="slider"><span class="row"><span>Разобрать</span><output id="explodeV"></output></span>
         <input id="explode" type="range" min="0" max="100" step="1" value="0"></label>
       <label class="select-row"><span>Следить за цилиндром</span><select id="watch"></select></label>
@@ -157,6 +158,20 @@
       </div>
     </section>
   </aside>
+
+  <div id="tray" class="tray" hidden>
+    <div class="tray-head"><b>Двигатель разобран</b><span>Нажмите на деталь в сцене или в списке, чтобы рассмотреть её отдельно</span><button id="assemble" class="big-btn small">Собрать</button></div>
+    <div id="trayList" class="tray-list"></div>
+  </div>
+
+  <section id="card" class="card" hidden aria-live="polite">
+    <p class="kicker light" id="cardKicker">Деталь</p>
+    <h2 id="cardName">—</h2>
+    <p id="cardText" class="card-text">—</p>
+    <table id="cardSpecs" class="card-specs"></table>
+    <p class="card-note" id="cardNote">Крутите деталь мышью, колесо — приближение.</p>
+    <div class="card-btns"><button id="cardBack" class="ghost">← К разобранному мотору</button><button id="cardAssemble" class="big-btn small">Собрать</button></div>
+  </section>
 
   <div class="dock" role="toolbar" aria-label="Пульт">
     <div id="env" class="seg dark" role="radiogroup" aria-label="Обстановка">

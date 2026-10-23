@@ -15,7 +15,8 @@ export const LAYOUTS = {
 export const FLOOR_Y = -560; // мм, пол лаборатории относительно оси коленвала
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const plainGray = new THREE.MeshStandardMaterial({ color: 0x8a9098, roughness: 0.5, metalness: 0.2 });
-const lateClip = [plainGray];
+const pistonPlain = new THREE.MeshStandardMaterial({ color: 0xd6d8da, metalness: 0.7, roughness: 0.33, side: THREE.DoubleSide });
+const lateClip = [plainGray, pistonPlain];
 const D2R = Math.PI / 180;
 
 // ---------- размеры ----------
@@ -63,10 +64,10 @@ export function dims(p) {
 function shoelace(pts) { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p.x * q.y - q.x * p.y; } return a; }
 
 // Тело вращения вокруг Y; профиль задаётся как [радиус, y], обход приводится к нужному направлению
-function lathe(prof, seg = 48) {
+function lathe(prof, seg = 48, phiStart = 0, phiLength = Math.PI * 2) {
   let pts = prof.map(([x, y]) => new THREE.Vector2(Math.max(0, x), y));
   if (shoelace(pts) < 0) pts = pts.reverse();
-  return new THREE.LatheGeometry(pts, seg);
+  return new THREE.LatheGeometry(pts, seg, phiStart, phiLength);
 }
 
 // Профиль в плоскости (z, y), выдавливание вдоль X (по центру)
@@ -218,10 +219,12 @@ export class Engine {
       this.groups[k] = new THREE.Group();
       this.root.add(this.groups[k]);
     }
+    // куда разлетаются группы деталей при разборке (мм)
     this.explodeDir = {
-      head: V3(0, 105, 0), valvetrain: V3(0, 105, 0), cover: V3(0, 215, 0), intake: V3(0, 105, -150),
-      exhaust: V3(0, 105, 150), pan: V3(0, -120, 0), timing: V3(-90, 0, 0),
+      head: V3(0, 200, 0), valvetrain: V3(0, 200, 0), cover: V3(0, 430, 0), intake: V3(0, 160, -300),
+      exhaust: V3(0, 160, 300), pan: V3(0, -380, 0), crank: V3(0, -210, 0), timing: V3(-230, 60, 0),
     };
+    this.pistonLift = 0; this.rodLift = 0;
     this.cyl = [];
     this.anchors = [];
     this.buildBlock(); this.buildCrank(); this.buildPistons(); this.buildHead(); this.buildValvetrain();
@@ -348,11 +351,17 @@ export class Engine {
   buildPistons() {
     const d = this.d, { B, R, ch, pistonH, ppR, pinR, L } = d;
     const Rp = R - 0.3, yt = ch, yb = ch - pistonH;
-    const pistonGeo = lathe([
-      [0, yt - 9], [Rp - 9, yt - 9], [Rp - 4.5, yt - 15], [Rp - 4.5, yb], [Rp - 1, yb], [Rp - 0.15, yb + 4],
+    // головка поршня (днище и кольцевые канавки) — по кругу, ниже — только юбки на опорных сторонах,
+    // а по бокам видны приливы под палец, как у настоящего поршня
+    const yl = yt - 20;
+    const crownGeo = lathe([
+      [0, yt - 9], [Rp - 9, yt - 9], [Rp - 4.5, yt - 15], [Rp - 4.5, yl], [Rp, yl],
       [Rp, yt - 17.5], [Rp - 3, yt - 17.5], [Rp - 3, yt - 14], [Rp, yt - 14], [Rp, yt - 11.1], [Rp - 2.2, yt - 11.1],
       [Rp - 2.2, yt - 9.5], [Rp, yt - 9.5], [Rp, yt - 6.6], [Rp - 2.2, yt - 6.6], [Rp - 2.2, yt - 5], [Rp, yt - 5],
-      [Rp, yt - 2], [Rp - 3, yt], [0, yt]], 64);
+      [Rp, yt - 2], [Rp - 2.5, yt], [Rp * 0.55, yt + 0.6], [0, yt + 0.9]], 72);
+    const skirtProf = [[Rp - 4, yl], [Rp, yl], [Rp - 0.12, yb + 5], [Rp - 1, yb], [Rp - 4, yb]];
+    const skirts = [lathe(skirtProf, 28, -1.05, 2.1), lathe(skirtProf, 28, Math.PI - 1.05, 2.1)];
+    const bossGeo = cyl(ppR + 6, 2 * (Rp - 3.5), 'x', 28);
     const ringGeo = (y0, y1, depth) => lathe([[R - depth, y0], [R - 0.05, y0], [R - 0.05, y1], [R - depth, y1]], 64);
     const rings = [ringGeo(yt - 6.5, yt - 5.1, 2.1), ringGeo(yt - 11, yt - 9.6, 2.1), ringGeo(yt - 17.4, yt - 14.1, 2.9)];
     // шатун: двутавр
@@ -381,7 +390,11 @@ export class Engine {
       const x = d.xs[i];
       const pg = new THREE.Group();
       pg.position.x = x;
-      pg.add(mesh(pistonGeo, M.piston, 'piston'));
+      pg.add(mesh(crownGeo, M.piston, 'piston'));
+      for (const sk of skirts) pg.add(mesh(sk, pistonPlain, 'piston'));
+      pg.add(mesh(bossGeo, M.piston, 'piston'));
+      for (const sx of [-1, 1]) { const pe = mesh(cyl(ppR, 1.2, 'x', 24), M.steel, 'pin'); pe.position.x = sx * (Rp - 3.4); pg.add(pe); const clip = mesh(new THREE.TorusGeometry(ppR + 1.2, 0.7, 6, 24), M.steel, 'pin'); clip.rotation.y = Math.PI / 2; clip.position.x = sx * (Rp - 3.2); pg.add(clip); }
+      for (const sx of [-1, 1]) { const web = mesh(new THREE.BoxGeometry(5, yt - 9 - (ppR + 2), 2 * (ppR + 6)), M.piston, 'piston'); web.position.set(sx * (Rp - 8), (yt - 9 + ppR + 2) / 2, 0); pg.add(web); }
       for (const rg of rings) pg.add(mesh(rg, M.ring, 'rings'));
       const wp = mesh(lathe([[ppR * 0.55, -0.4 * B], [ppR, -0.4 * B], [ppR, 0.4 * B], [ppR * 0.55, 0.4 * B]], 32), M.steel, 'pin');
       wp.rotation.z = Math.PI / 2; pg.add(wp);
@@ -468,8 +481,8 @@ export class Engine {
       for (const b of pt.exBr) add(thickTube(curve(b), rExB, wall - 1, 24, 20));
     });
     // свечные колодцы
-    const plugTop = H1 + 2 + d.coverH;
-    xs.forEach((x) => { const t = mesh(lathe([[11, yDeck - 2], [15.5, yDeck - 2], [15.5, plugTop - 1], [11, plugTop - 1]], 32), M.head, 'head'); t.position.x = x; this.add('head', t); });
+    // свечной колодец заканчивается у верхней плоскости головки, дальше — уплотнение крышки
+    xs.forEach((x) => { const t = mesh(lathe([[11, yDeck - 2], [15.5, yDeck - 2], [15.5, H1 + 4], [11, H1 + 4]], 32), M.head, 'head'); t.position.x = x; this.add('head', t); const sl = mesh(lathe([[11, H1 + 4], [16.5, H1 + 4], [16.5, H1 + 10], [11, H1 + 10]], 32), M.rubber, 'cover'); sl.position.x = x; this.add('cover', sl); });
     // рубашка охлаждения головки
     const wj = roundRect(Lb - 2 * tW - 6, Wh - 2 * tW - 6, 10);
     xs.forEach((x) => wj.holes.push(circlePath(x, 0, 16)));
@@ -478,13 +491,15 @@ export class Engine {
     const jr = 0.155 * B + 0.6;
     for (let j = 0; j <= d.n; j++) {
       const x = xs[0] - d.pitch / 2 + j * d.pitch;
-      const w = Wh / 2 - tW, y0 = Math.min(vIn.cam.y, vEx.cam.y) - 0.17 * B - 30;
-      const b = new THREE.Shape();
-      b.moveTo(-w, y0); b.lineTo(w, y0); b.lineTo(w, vEx.cam.y);
-      b.lineTo(vEx.cam.z + jr, vEx.cam.y); b.absarc(vEx.cam.z, vEx.cam.y, jr, 0, Math.PI, true);
-      b.lineTo(vIn.cam.z + jr, vIn.cam.y); b.absarc(vIn.cam.z, vIn.cam.y, jr, 0, Math.PI, true);
-      b.lineTo(-w, vIn.cam.y); b.closePath();
-      const bh = mesh(extrudeYZ(b, 14), M.head, 'head'); bh.position.x = x; this.add('head', bh);
+      // опоры шеек: узкие «башенки» от стенки к свечному колодцу, а не сплошная стена
+      for (const v of [vIn, vEx]) {
+        const sgn = Math.sign(v.cam.z), zo = sgn * (Wh / 2 - tW), zi = sgn * 15, y0 = v.cam.y - jr - 16;
+        const b = new THREE.Shape();
+        b.moveTo(Math.min(zo, zi), y0); b.lineTo(Math.max(zo, zi), y0); b.lineTo(Math.max(zo, zi), v.cam.y);
+        b.lineTo(v.cam.z + jr, v.cam.y); b.absarc(v.cam.z, v.cam.y, jr, 0, Math.PI, true);
+        b.lineTo(Math.min(zo, zi), v.cam.y); b.closePath();
+        const bh = mesh(extrudeYZ(b, 14, 0.6), M.head, 'head'); bh.position.x = x; this.add('head', bh);
+      }
       for (const v of [vIn, vEx]) {
         const cw = jr + 10, c = new THREE.Shape();
         c.moveTo(v.cam.z - cw, v.cam.y); c.lineTo(v.cam.z - jr, v.cam.y); c.absarc(v.cam.z, v.cam.y, jr, Math.PI, 0, true);
@@ -496,7 +511,7 @@ export class Engine {
       }
       // болты головки блока с бобышками
       for (const s2 of [-1, 1]) {
-        const z = s2 * (Wh / 2 - 22), yb = yDeck + 34;
+        const z = s2 * (Wh / 2 - 22), yb = yDeck + 18;
         const boss = mesh(cyl(9, yb - yDeck, 'y', 20), M.head, 'head'); boss.position.set(x, (yb + yDeck) / 2, z); this.add('head', boss);
         const hb = mesh(new THREE.CylinderGeometry(7.5, 7.5, 7, 12), M.steel, 'head'); hb.position.set(x, yb + 3.5, z); this.add('head', hb);
         const wsh = mesh(cyl(10, 1.6, 'y', 20), M.steel, 'head'); wsh.position.set(x, yb + 0.8, z); this.add('head', wsh);
@@ -513,6 +528,7 @@ export class Engine {
       g.add(mesh(lathe([[0, 1.5], [6.3, 1.5], [7, 4], [6.3, 6], [7, 8], [6.3, 10], [7, 12], [6.3, 14], [7, 16], [6.3, 18.5], [0, 18.5]], 24), M.steel, 'plug'));
       const hex = mesh(new THREE.CylinderGeometry(10.2, 10.2, 12, 6), M.steel, 'plug'); hex.position.y = 24; g.add(hex);
       g.add(mesh(lathe([[0, 30], [6.8, 30], [6.8, 48], [6.0, 50], [6.8, 52], [6.0, 54], [6.8, 56], [5.2, 58], [5.2, 72], [3, 72], [3, 76], [0, 76]], 24), M.ceramic, 'plug'));
+      g.userData.baseY = g.position.y;
       this.add('head', g);
       this.plugs.push(g);
     });
@@ -564,7 +580,8 @@ export class Engine {
           sp.position.y = springBase;
           frame.add(sp);
           this.groups.valvetrain.add(frame);
-          this.valves.push({ cyl: i, type, moving, spring: sp, springBase, springTop0 });
+          frame.userData.base = frame.position.clone(); frame.userData.axis = v.axis;
+          this.valves.push({ cyl: i, type, frame, moving, spring: sp, springBase, springTop0 });
         }
       }
     });
@@ -596,6 +613,7 @@ export class Engine {
         const lg = extrudeYZ(sh, 13, 0.6);
         for (const s of [-1, 1]) { const lobe = mesh(lg, M.steel, type === 'in' ? 'camIn' : 'camEx'); lobe.position.x = x + s * v.xo; cg.add(lobe); }
       });
+      cg.userData.baseY = cg.position.y;
       this.groups.valvetrain.add(cg);
       this.cams[type] = cg;
     }
@@ -874,9 +892,17 @@ export class Engine {
 
   // =====================================================================
   setExplode(t) {
-    for (const [k, v] of Object.entries(this.explodeDir)) this.groups[k].position.copy(v).multiplyScalar(t * t * (3 - 2 * t));
+    const k = t * t * (3 - 2 * t);
+    for (const [g, v] of Object.entries(this.explodeDir)) this.groups[g].position.copy(v).multiplyScalar(k);
+    // внутри групп: распредвалы выше головки, клапаны вытянуты вверх, свечи выкручены,
+    // поршни выходят из цилиндров, шатуны — между поршнями и валом
+    for (const c of Object.values(this.cams)) c.position.y = c.userData.baseY + 170 * k;
+    for (const v of this.valves) v.frame.position.copy(v.frame.userData.base).addScaledVector(v.frame.userData.axis, 110 * k);
+    for (const p of this.plugs) p.position.y = p.userData.baseY + 150 * k;
+    this.pistonLift = 190 * k; this.rodLift = -40 * k;
     this.exploded = t > 0.01;
-    this.groups.timing.visible = !this.exploded && this.timingVisible !== false;
+    this.groups.timing.visible = this.timingVisible !== false;
+    this.groups.stand.visible = t < 0.3 && this.standVisible !== false;
   }
 
   /**
@@ -899,8 +925,8 @@ export class Engine {
       const beta = th - c.off * D2R;
       const sb = Math.sin(beta), cb = Math.cos(beta);
       const yPin = d.r * cb + Math.sqrt(d.L * d.L - d.r * d.r * sb * sb);
-      c.piston.position.y = yPin;
-      c.rod.position.set(c.x, d.r * cb, d.r * sb);
+      c.piston.position.y = yPin + this.pistonLift;
+      c.rod.position.set(c.x, d.r * cb + this.rodLift, d.r * sb);
       c.rod.rotation.x = Math.atan2(-d.r * sb, yPin - d.r * cb);
       c.alpha = wrap720(theta - c.off);
       c.crown = yPin + d.ch;

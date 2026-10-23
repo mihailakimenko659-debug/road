@@ -7,6 +7,7 @@ import { buildLab } from './lab.js';
 import { Post } from './post.js';
 import { drawPV, drawPA, drawCycles, drawDyno } from './charts.js';
 import { ENGINES, CUSTOM } from './engines.js';
+import { Inspector, INSPECTABLE, groupOf, specsOf } from './inspect.js';
 import { PARTS } from './parts.js';
 import { EngineSound } from './sound.js';
 
@@ -39,10 +40,11 @@ controls.autoRotateSpeed = 0.5;
 
 const env = buildLab(renderer, scene);
 const post = new Post(renderer, scene, camera);
+const inspector = new Inspector(scene);
 
 // ---------------- состояние ----------------
 const state = {
-  engine: 'vaz21126', modified: false, curve: null, sweep: null,
+  engine: 'vaz21126', modified: false, curve: null, sweep: null, mode: 'normal',
   rpm: 2000, throttle: 0.6, advance: 20, vvt: 0,
   cylinders: 4, bore: 86, stroke: 86, cr: 10.5,
   cut: 'quarter', cutPos: 0.5, watch: 0, xray: false, flow: true, labels: true,
@@ -63,6 +65,7 @@ let engine = null, cyc = null, theta = 30, heat = 0;
 const sound = new EngineSound();
 
 function rebuild() {
+  if (state.mode && state.mode !== 'normal') { inspector.clear(); setMode('normal'); }
   if (engine) engine.dispose();
   engine = new Engine(geomParams());
   scene.add(engine.root);
@@ -222,9 +225,10 @@ function applyVisibility() {
   g.block.visible = v.block;
   g.intake.visible = g.exhaust.visible = v.manifolds;
   engine.timingVisible = v.timing;
-  g.timing.visible = v.timing && !engine.exploded;
+  g.timing.visible = v.timing;
   g.pan.visible = v.pan;
-  g.stand.visible = v.stand;
+  engine.standVisible = v.stand;
+  g.stand.visible = v.stand && state.explode < 0.3;
 }
 function isVisibleUp(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }
 const innerVisible = () => state.cut !== 'none' || state.xray || state.explode > 0.3 || !state.visible.block || !state.visible.head || !state.visible.cover;
@@ -284,7 +288,7 @@ function calloutText(key) {
 }
 const tmp = new THREE.Vector3(), cen = new THREE.Vector3();
 function updateCallouts(textToo) {
-  const show = state.labels && !engine.exploded;
+  const show = state.labels && !engine.exploded && state.mode === 'normal';
   coEl.hidden = !show; svg.style.display = show ? '' : 'none';
   if (!show) return;
   const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -499,6 +503,79 @@ function explain(alpha) {
   return { st, text };
 }
 
+
+// ---------------- разборка на детали и осмотр ----------------
+let explodeAnim = null, dragging = false, savedPlaying = true;
+function animateExplode(to, dur = 1.5) { explodeAnim = { from: state.explode, to, start: performance.now(), dur }; }
+function stepExplode() {
+  if (!explodeAnim) return;
+  const t = Math.min(1, (performance.now() - explodeAnim.start) / 1000 / explodeAnim.dur);
+  const k = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+  state.explode = explodeAnim.from + (explodeAnim.to - explodeAnim.from) * k;
+  engine.setExplode(state.explode); applyVisibility();
+  setSlider('explode', Math.round(state.explode * 100), state.explode > 0.005 ? `${Math.round(state.explode * 100)} %` : 'собран');
+  if (t >= 1) explodeAnim = null;
+}
+function setMode(m) { state.mode = m; document.body.dataset.mode = m; $('tray').hidden = m !== 'parts'; $('card').hidden = m !== 'inspect'; $('disasm').textContent = m === 'normal' ? 'Разобрать на детали' : 'Собрать двигатель'; }
+function toParts() {
+  if (state.mode === 'inspect') leaveInspect();
+  if (state.mode === 'normal') { savedPlaying = state.playing; if (state.playing) $('play').click(); }
+  setMode('parts');
+  applyClip([], false); // разобранные детали показываем целиком, без разреза
+  animateExplode(1);
+  flyTo(V(-20, 12, 25), V(0, 1.2, 0), 1.6);
+}
+function assemble() {
+  if (state.mode === 'inspect') leaveInspect();
+  setMode('normal');
+  updateClip();
+  animateExplode(0);
+  if (savedPlaying && !state.playing) $('play').click();
+  flyTo(V(-9.6, 5.4, 13.8), V(0, 0.6, 0), 1.4);
+}
+function enterInspect(key) {
+  const g = groupOf(key);
+  const info = inspector.show(engine, g);
+  if (!info) return;
+  setMode('inspect');
+  engine.root.visible = false;
+  applyClip([], false); setXray(false);
+  const name = (INSPECTABLE.find(([k]) => k === g) || [g, PARTS[key]?.name || key])[1];
+  const p = PARTS[g === 'timing' ? (engine.look.timing === 'chain' ? 'chain' : 'belt') : g] || PARTS[key];
+  $('cardKicker').textContent = `${def().name} · деталь`;
+  $('cardName').textContent = p ? p.name : name;
+  $('cardText').textContent = p ? p.text : '';
+  const sp = specsOf(g, engine, def());
+  $('cardSpecs').innerHTML = sp.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+  $('cardNote').textContent = `Показано в ${info.scale >= 1 ? fmt(info.scale, 1) + ' раза крупнее' : fmt(1 / info.scale, 1) + ' раза мельче'}, чем на стенде. Крутите мышью, колесо — приближение.`;
+  document.querySelectorAll('#trayList button').forEach((b) => b.classList.toggle('on', b.dataset.k === g));
+  flyTo(info.center.clone().add(V(-5.6, 2.8, 9.2)), info.center, 1.1);
+}
+function leaveInspect() {
+  inspector.clear();
+  engine.root.visible = true;
+  setXray(state.xray);
+}
+$('trayList').innerHTML = INSPECTABLE.map(([k, n]) => `<button data-k="${k}">${n}</button>`).join('');
+$('trayList').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) enterInspect(b.dataset.k); });
+$('disasm').addEventListener('click', () => (state.mode === 'normal' ? toParts() : assemble()));
+$('assemble').addEventListener('click', assemble);
+$('cardAssemble').addEventListener('click', assemble);
+$('cardBack').addEventListener('click', toParts);
+// клик по детали в разобранном моторе
+let downAt = null;
+canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; dragging = true; });
+window.addEventListener('pointerup', (e) => {
+  dragging = false;
+  if (!downAt || state.mode !== 'parts') return;
+  const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]); downAt = null;
+  if (moved > 5 || e.target !== canvas) return;
+  mouse.set((e.clientX / canvas.clientWidth) * 2 - 1, -(e.clientY / canvas.clientHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObject(engine.root, true).find((h) => h.object.userData.part && isVisibleUp(h.object) && !h.object.isInstancedMesh && !h.object.isPoints && h.object.userData.part !== 'gas');
+  if (hit) enterInspect(hit.object.userData.part);
+});
+
 // ---------------- главный цикл ----------------
 const clock = new THREE.Clock();
 let uiT = 0, coT = 0, time = 0;
@@ -521,6 +598,8 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   time += dt;
   stepSweep();
+  stepExplode();
+  inspector.update(dt, !dragging);
   let dTheta = 0;
   if (state.playing) { dTheta = state.rpm / 60 * 360 * dt * slowFactor(); theta += dTheta; }
   if (tween) {
