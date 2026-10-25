@@ -1,0 +1,877 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>Ладно · Кафе</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=Caveat:wght@600&display=swap">
+<style>
+/* Макет как в семейной версии: колонка приложения слева, справа (на широком экране) — «почему так сделано». Мотив — бумажное положение о премировании с подписями и печатью. Цвет продукта — паприка. */
+:root{
+  --bg:#eef0f6; --surface:#ffffff; --ink:#1b2350; --muted:#5b6286; --line:#d8dbea;
+  --on-ink:#ffffff; --on-accent:#2b0c03;
+  --accent:#e4572e; --accent-ink:#a63212; --accent-soft:#ffe6dd;
+  --parent:#3d55c9; --parent-soft:#e3e8ff;
+  --rel:#1f8a6b; --rel-soft:#dcf3ea;
+  --ok:#1f8a5b; --warn:#b26a00; --warn-soft:#fff0d9; --bad:#c0392b; --bad-soft:#fde6e3;
+  --f-display:"Unbounded","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-hand:"Caveat","Segoe Script","Comic Sans MS",cursive;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10132a; --surface:#1a1e3c; --ink:#eceefb; --muted:#a3a9cc; --line:#2d335c; --on-ink:#10132a;
+  --accent:#ff7a50; --accent-ink:#ff9a78; --accent-soft:#3d1d14;
+  --parent:#8fa2ff; --parent-soft:#262f63; --rel:#4fd1a5; --rel-soft:#143a31;
+  --ok:#4cc38a; --warn:#ffb54d; --warn-soft:#3b2a10; --bad:#ff7a6e; --bad-soft:#3d1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10132a; --surface:#1a1e3c; --ink:#eceefb; --muted:#a3a9cc; --line:#2d335c; --on-ink:#10132a;
+  --accent:#ff7a50; --accent-ink:#ff9a78; --accent-soft:#3d1d14;
+  --parent:#8fa2ff; --parent-soft:#262f63; --rel:#4fd1a5; --rel-soft:#143a31;
+  --ok:#4cc38a; --warn:#ffb54d; --warn-soft:#3b2a10; --bad:#ff7a6e; --bad-soft:#3d1c1a; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--parent);outline-offset:2px;border-radius:8px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;line-height:1.2;text-wrap:balance;margin:0}
+p{margin:0}
+.shell{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+
+/* Шапка */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bg);padding-block:12px 10px;display:grid;gap:10px;border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand b{font-family:var(--f-display);font-size:20px;letter-spacing:.01em;display:block;line-height:1}
+.brand small{color:var(--muted);font-size:12px}
+.seal{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--on-accent);font-family:var(--f-display);font-weight:700;font-size:18px;box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 5px #fff6;transform:rotate(-8deg)}
+.top-acts{display:flex;align-items:center;gap:8px;margin-left:auto}
+.saved{font-size:12px;color:var(--muted);transition:color .3s}
+.saved.flash{color:var(--ok)}
+.roles{display:flex;gap:6px;flex-wrap:wrap}
+.role{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px 6px 8px;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:6px}
+.role .av{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--accent-ink)}
+.role.parent .av{background:var(--parent-soft);color:var(--parent)}
+.role .rj{font-size:12.5px;opacity:.75;font-weight:400}
+.role[aria-selected="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.roles-label{font-size:12px;color:var(--muted);align-self:center;margin-right:2px}
+@media (max-width:520px){.brand small .wide,.role .rj{display:none}.top{position:static}}
+
+/* Раскладка */
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;padding-block:18px 0}
+.col{min-width:0;display:flex;flex-direction:column;min-height:calc(100vh - 140px)}
+#screen{display:flex;flex-direction:column;gap:18px;padding-bottom:24px;flex:1}
+aside#why{display:none}
+@media (min-width:980px){
+  .layout{grid-template-columns:minmax(0,500px) minmax(0,1fr)}
+  aside#why{display:block;position:sticky;top:130px;align-self:start}
+  .why-inline{display:none}
+}
+
+/* Нижние вкладки */
+.tabs{position:sticky;bottom:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:var(--r) var(--r) 0 0;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+.tab{border:0;background:none;padding:8px 2px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);position:relative;min-width:0}
+.tab[aria-selected="true"]{color:var(--ink);background:var(--bg)}
+.tab .tl{position:relative}
+.tab .badge{position:absolute;top:-10px;left:calc(100% - 2px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;font-weight:600}
+
+/* Блоки */
+.screen-title{font-size:26px}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.block h2{font-size:16px}
+.block-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.note,.muted{color:var(--muted)}
+.small{font-size:13px}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+.hint{font-size:13px;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.sub{margin-top:-10px}
+
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:6px;line-height:1.3}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.btn.accent{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:9px}
+.btn.locked{background:transparent;border-style:dashed;color:var(--muted)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.chip{border:1px dashed var(--line);background:var(--bg);border-radius:999px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+.chip:hover{border-style:solid}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.pill.hot{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent;font-weight:600}
+.pill.ok{background:var(--rel-soft);color:var(--rel);border-color:transparent}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.wait{background:var(--parent-soft);color:var(--parent);border-color:transparent}
+button.pill{cursor:pointer;font:inherit;font-size:11.5px}
+
+/* Задания и чек-листы */
+.task{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.block h2 + .task,.block .block-head + .task{border-top:0;padding-top:0}
+.task-main{min-width:0;display:flex;flex-direction:column;gap:4px}
+.task-title{font-weight:600}
+.task-meta{font-size:13px;color:var(--muted)}
+.tags{display:flex;gap:5px;flex-wrap:wrap}
+.task-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.task-pts{font-family:var(--f-display);font-size:15px;color:var(--accent-ink)}
+.check{border-top:1px solid var(--line);padding-top:10px}
+.block-head + .check{border-top:0;padding-top:0}
+.check .task{border:0;padding:0 0 8px}
+.check-acts{display:flex;gap:6px;flex-wrap:wrap}
+.duties{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.duty{width:100%;text-align:left;display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 12px;cursor:pointer}
+.duty[disabled]{cursor:default}
+.duty .tick{width:20px;height:20px;border-radius:6px;border:2px solid var(--muted);flex:none;position:relative}
+.duty .dt{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.duty .dp{flex:none;font-weight:600;color:var(--accent-ink);font-variant-numeric:tabular-nums;font-size:13.5px}
+.duty.on .dt>span:first-child{color:var(--muted)}
+.duty.on .tick{background:var(--ok);border-color:var(--ok)}
+.duty.on .tick::after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+/* Обсуждение спора */
+.deal{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.thread{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.thread li{max-width:88%;padding:7px 11px;border-radius:12px;font-size:14px}
+.thread li.by-emp{align-self:flex-start;background:var(--accent-soft);border-bottom-left-radius:4px}
+.thread li.by-mgr{align-self:flex-end;background:var(--parent-soft);border-bottom-right-radius:4px}
+.thread .who{display:block;font-size:11.5px;color:var(--muted)}
+
+/* Премия */
+.hero{background:var(--accent-soft);border:1px solid transparent;border-radius:20px;padding:18px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.hero .txt{min-width:0;flex:1 1 200px;display:flex;flex-direction:column;gap:6px}
+.hero h1{font-size:28px;color:var(--accent-ink);font-variant-numeric:tabular-nums}
+.ringbox{position:relative;width:148px;height:148px;flex:none;max-width:100%}
+.ringbox svg{display:block}
+.ring-bg{fill:none;stroke:var(--surface);stroke-width:13}
+.ring-fg{fill:none;stroke:var(--accent);stroke-width:13;stroke-linecap:round;transition:stroke-dashoffset .7s ease}
+.ring-num{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ring-num b{font-family:var(--f-display);font-size:30px;line-height:1}
+.ring-num span{font-size:12px;color:var(--muted)}
+.crits{display:flex;flex-direction:column}
+.crit{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:start;padding:11px 0;border-top:1px solid var(--line)}
+.crit:first-child{border-top:0;padding-top:0}
+.crit .mark{width:20px;height:20px;border-radius:50%;margin-top:2px;position:relative;background:var(--rel-soft)}
+.crit .mark::after{content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;border:solid var(--ok);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.crit.bad .mark,.crit.wait .mark,.crit.off .mark{background:var(--bad-soft)}
+.crit.bad .mark::after,.crit.wait .mark::after,.crit.off .mark::after{left:5px;top:9px;width:10px;height:0;border-width:2px 0 0;border-color:var(--bad);transform:none}
+.crit.wait .mark{background:var(--parent-soft)} .crit.wait .mark::after{border-color:var(--parent)}
+.crit.off .mark{background:var(--bg)} .crit.off .mark::after{border-color:var(--muted)}
+.crit-main{min-width:0;display:flex;flex-direction:column;gap:4px}
+.crit-main b{font-weight:600}
+.crit-eff{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ok);font-size:14px}
+.crit.bad .crit-eff,.crit.wait .crit-eff{color:var(--bad)}
+.crit.off .crit-eff{color:var(--muted);text-decoration:line-through}
+.wallet{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.wallet .bal{font-family:var(--f-display);font-size:24px;font-variant-numeric:tabular-nums}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.list li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.list li:first-child{border-top:0}
+.list .d{color:var(--muted);font-size:12.5px}
+.list .r{text-align:right;flex:none}
+.plus{color:var(--ok);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.minus{color:var(--bad);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.banner{border-radius:12px;padding:12px 14px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;font-size:14px}
+.banner.pause{background:var(--parent-soft)}
+.banner.warn{background:var(--warn-soft)}
+.banner.bad{background:var(--bad-soft)}
+.banner.gold{background:var(--accent-soft)}
+
+/* Сводки, цель, спасибо */
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;min-width:0}
+.stat b{font-family:var(--f-display);font-size:22px;display:block;font-variant-numeric:tabular-nums;font-weight:700}
+.stat span{font-size:12px;color:var(--muted)}
+button.stat{cursor:pointer}
+button.stat:hover{border-color:var(--muted)}
+.bars{display:grid;gap:14px}
+.bar-row{display:grid;gap:6px}
+.bar-top{display:flex;justify-content:space-between;font-size:14px;gap:8px;flex-wrap:wrap}
+.bar{height:10px;border-radius:5px;background:var(--bg);overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--parent);border-radius:5px}
+.bar i.ok{background:var(--ok)}
+.meter{position:relative;height:12px;border-radius:6px;background:var(--bg);border:1px solid var(--line)}
+.meter i{display:block;height:100%;border-radius:6px;background:var(--accent);transition:width .6s ease}
+.meter i.ok{background:var(--ok)}
+.meter b{position:absolute;top:-5px;bottom:-5px;width:3px;margin-left:-1px;border-radius:2px;background:var(--ink)}
+.goal{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.thx{padding:10px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.thx:first-child{border-top:0;padding-top:0}
+.thx-head{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;align-items:baseline}
+.thx q{font-family:var(--f-hand);font-size:22px;line-height:1.15;quotes:"«" "»"}
+.thx .d{color:var(--muted);font-size:12.5px}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.steps li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 0;position:relative}
+.steps li::before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:var(--surface);justify-self:center;z-index:1}
+.steps li.done::before{background:var(--accent);border-color:var(--accent)}
+.steps li:not(:last-child)::after{content:"";position:absolute;left:10px;top:50%;height:100%;width:2px;background:var(--line)}
+.steps li.done:not(:last-child)::after{background:var(--accent)}
+.steps .d{color:var(--muted);font-size:12.5px}
+.people .av{width:30px;height:30px;border-radius:50%;display:inline-grid;place-items:center;font-size:13px;font-weight:600;background:var(--accent-soft);color:var(--accent-ink);flex:none}
+.people .av.m{background:var(--parent-soft);color:var(--parent)}
+.people li{align-items:center}
+.people .who{display:flex;gap:10px;align-items:center;min-width:0}
+
+/* Положение */
+.paper{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 18px;display:flex;flex-direction:column;gap:16px;position:relative}
+.paper-head{padding-right:96px}
+.paper h2{font-size:18px}
+.paper h3{font-size:13.5px;margin-bottom:8px}
+.paper .ver{font-size:12px;color:var(--muted);margin-top:4px}
+.cls{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.cls>li{display:grid;grid-template-columns:34px minmax(0,1fr);gap:4px;font-size:14.5px}
+.cls>li::before{content:attr(data-n);font-family:var(--f-display);font-size:12px;color:var(--accent-ink);padding-top:2px}
+.plist{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px;font-size:13.5px}
+.plist li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted var(--line);padding-bottom:3px}
+.signs{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;border-top:1px dashed var(--line);padding-top:14px}
+.sign{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sign .hand{font-family:var(--f-hand);font-size:26px;line-height:1;color:var(--parent);min-height:28px}
+.sign .who{font-size:12px;color:var(--muted);border-top:1px solid var(--muted);padding-top:3px}
+.stamp{position:absolute;right:14px;top:16px;transform:rotate(9deg);border:2px solid var(--ok);color:var(--ok);border-radius:8px;padding:2px 8px;font-family:var(--f-display);font-size:11px;letter-spacing:.06em}
+
+/* Почему так */
+.why{display:flex;flex-direction:column;gap:12px}
+.why-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.why-card .p{font-size:13px;color:var(--bad);font-weight:600}
+.why-card .src{font-size:12px;color:var(--muted)}
+.why-card .s{font-size:14.5px}
+.why-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.why-head h2{font-size:15px}
+details.why-inline{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px}
+details.why-inline summary{cursor:pointer;font-weight:600}
+details.why-inline[open] summary{margin-bottom:10px}
+details.why-inline .why-card{border:0;padding:10px 0;border-top:1px solid var(--line);border-radius:0}
+.sol{display:grid;gap:10px}
+.future{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.future li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.future li::before{content:"";width:10px;height:10px;margin-top:7px;border-radius:3px;background:var(--accent)}
+.hyp{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;padding:1px 7px;border-radius:999px;background:var(--warn-soft);color:var(--warn);vertical-align:1px}
+
+/* Окно формы */
+.sheet{position:fixed;inset:0;z-index:20;display:grid;align-items:end;justify-items:center}
+.sheet-back{position:absolute;inset:0;background:#0b0e2299}
+.sheet-card{position:relative;width:min(520px,100%);max-height:88vh;overflow:auto;background:var(--surface);border-radius:20px 20px 0 0;padding:20px max(18px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;animation:up .22s ease}
+@media (min-width:640px){.sheet{align-items:center}.sheet-card{border-radius:20px}}
+@keyframes up{from{transform:translateY(24px);opacity:.6}}
+.sheet-card h2{font-size:18px}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld label,fieldset.fld legend{font-size:13px;font-weight:600}
+fieldset.fld{border:0;margin:0;padding:0}
+fieldset.fld legend{padding:0;margin-bottom:5px}
+.fld input,.fld select,.fld textarea{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;width:100%}
+.fld textarea{resize:vertical}
+.fld.check{flex-direction:row;align-items:center;gap:10px}
+.fld.check input{width:auto;padding:0;border:0}
+.switch{appearance:none;-webkit-appearance:none;width:44px;height:26px;border-radius:13px;background:var(--line)!important;position:relative;cursor:pointer;transition:background .2s;flex:none;margin:0}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s}
+.switch:checked{background:var(--ok)!important}
+.switch:checked::after{left:21px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.segb{position:relative}
+.segb input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.segb span{display:block;min-width:54px;text-align:center;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-weight:600}
+.segb input:checked+span{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.segb input:focus-visible+span{outline:3px solid var(--parent);outline-offset:2px}
+.segb input:disabled+span{opacity:.4}
+.photo-ph{height:118px;border:2px dashed var(--line);border-radius:12px;display:grid;place-items:center;color:var(--muted);font-size:13px;background:repeating-linear-gradient(45deg,var(--bg) 0 10px,var(--surface) 10px 20px)}
+.photo-ph span{background:var(--surface);padding:2px 8px;border-radius:6px}
+.sheet-actions{display:flex;gap:8px;justify-content:flex-end}
+.err{color:var(--bad);font-size:13px;min-height:1px}
+.err:empty{display:none}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:10px 16px;border-radius:12px;font-size:14px;z-index:30;max-width:calc(100% - 32px);width:max-content;box-shadow:0 8px 24px #0004;transition:opacity .25s}
+.toast[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="shell">
+  <header class="top">
+    <div class="top-in">
+      <div class="brand"><span class="seal" aria-hidden="true">Л</span><div><b>Ладно</b><small>для кафе · прототип<span class="wide"> на примере кафе «Чайка»</span></small></div></div>
+      <div class="top-acts"><span id="saved" class="saved">Сохранено</span><a class="btn sm ghost" href="index.html">Все прототипы</a><button class="btn sm" data-act="solutions">Решения</button></div>
+    </div>
+    <div id="roles" class="roles" role="tablist" aria-label="Чьими глазами смотреть"></div>
+  </header>
+  <div class="layout">
+    <div class="col">
+      <main id="screen" aria-live="polite"></main>
+      <nav id="tabs" class="tabs" role="tablist" aria-label="Разделы"></nav>
+    </div>
+    <aside id="why" aria-label="Почему так сделано"></aside>
+  </div>
+</div>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-back" data-act="closeSheet"></div>
+  <form id="sheet-form" class="sheet-card" novalidate>
+    <h2 id="sheet-title"></h2>
+    <div id="sheet-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    <p id="sheet-err" class="err" role="alert"></p>
+    <div class="sheet-actions"><button id="sheet-no" type="button" class="btn ghost" data-act="closeSheet">Отмена</button><button id="sheet-ok" class="btn primary" type="submit">Готово</button></div>
+  </form>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+(function(){
+'use strict';
+const KEY='ladno-cafe-v1', UIKEY='ladno-cafe-ui-v1', DAY=864e5, H=36e5;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Math.round(n).toLocaleString('ru-RU');
+const rub=n=>fmt(n)+' ₽';
+function pl(n,a,b,c){n=Math.abs(Math.round(n));const m=n%100,k=n%10;if(m>10&&m<20)return c;if(k===1)return a;if(k>=2&&k<=4)return b;return c}
+const pts=n=>fmt(n)+' '+pl(n,'балл','балла','баллов');
+const days=n=>n+' '+pl(n,'день','дня','дней');
+const sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()};
+function ago(t){const d=Math.round((sod(Date.now())-sod(t))/DAY);return d<=0?'сегодня':d===1?'вчера':days(d)+' назад'}
+const dstr=t=>new Date(t).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+const hm=t=>new Date(t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+const uid=()=>Math.random().toString(36).slice(2,9);
+const MONTHS=['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+const monthName=()=>MONTHS[new Date().getMonth()];
+const monthStart=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1).getTime()};
+const firstNext=k=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()+k,1).getTime()};
+const daysLeft=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()-d.getDate()};
+const inMonth=t=>t>=monthStart();
+const pctS=x=>(Math.floor(x*1000+1e-6)/10).toLocaleString('ru-RU')+'%';
+const rateS=v=>v.toLocaleString('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:2});
+const clamp=x=>Math.max(0,Math.min(1,x));
+const LOCK='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+
+/* ---------- Правила и шаблоны ---------- */
+const MGR='irina', SWITCH=['irina','dima','sasha','lena'];
+// [название, баллы, нужно ли фото]
+const TPL={
+  waiter:{open:['Открытие зала',[['Протереть столы и меню',5],['Разложить приборы и салфетки',5],['Узнать стоп-лист у кухни',5],['Проверить туалет для гостей',5,1]]],
+          close:['Закрытие зала',[['Собрать и протереть меню',5],['Поставить стулья, подмести зал',5],['Сдать кассу и чаевые по описи',10,1]]]},
+  cook:{open:['Открытие кухни',[['Проверить сроки в холодильнике',10,1],['Записать температуру холодильников',5,1],['Проверить заготовки по списку',5],['Форма, шапочка, вымыть руки',3]]],
+        close:['Закрытие кухни',[['Промаркировать заготовки датой',5,1],['Помыть плиту и вытяжку',10,1],['Убрать продукты в холодильник',5],['Выключить газ и оборудование',5]]]},
+  barista:{open:['Открытие бара',[['Прогреть кофемашину, пробный эспрессо',5],['Настроить помол',5],['Проверить сроки молока и сиропов',5,1],['Протереть стойку и витрину',5]]],
+           close:['Закрытие бара',[['Промыть кофемашину и холдеры',10,1],['Сдать кассу бара',10],['Убрать молоко в холодильник',5]]]}
+};
+const CUTS=[
+  {id:'4.1',t:'Опоздание от 5 до 15 минут',pct:5},
+  {id:'4.2',t:'Опоздание больше 15 минут',pct:10},
+  {id:'4.3',t:'Нарушение санитарных правил на кухне или за баром',pct:15},
+  {id:'4.4',t:'Подтверждённая жалоба гостя на грубость',pct:15},
+  {id:'4.5',t:'Прогул без уважительной причины',pct:30}];
+const THX_CHIPS=['Выручил(а) в час пик','Подменил(а) смену','Помог(ла) с заготовками','Научил(а) новому','Спас(ла) банкет'];
+
+/* ---------- Пример кафе ---------- */
+function mkList(who,role,kind,doneN,status,t){
+  const [title,items]=TPL[role][kind];
+  return {id:who+'-'+kind,who,kind,title,status,sub:t||0,note:'',reason:'',
+    items:items.map(([x,p,ph],i)=>({id:who+kind+i,t:x,pts:p,photo:!!ph,done:i<doneN,photoOk:!!ph&&i<doneN}))};
+}
+function seed(){
+  const n=Date.now(),ms=monthStart(),tm=x=>Math.max(ms+3*H,n-x);
+  return {
+    v:1, cafe:'Чайка',
+    people:[
+      {id:'irina',name:'Ирина',job:'управляющая',role:'manager',gen:'Ирины',dat:'Ирине',f:true},
+      {id:'dima',name:'Дима',job:'официант',role:'waiter',gen:'Димы',dat:'Диме'},
+      {id:'sasha',name:'Саша',job:'повар',role:'cook',gen:'Саши',dat:'Саше'},
+      {id:'lena',name:'Лена',job:'бариста',role:'barista',gen:'Лены',dat:'Лене',f:true},
+      {id:'oleg',name:'Олег',job:'повар',role:'cook',gen:'Олега',dat:'Олегу',off:true},
+      {id:'katya',name:'Катя',job:'официант, стажёр',role:'waiter',gen:'Кати',dat:'Кате',f:true,isNew:true}],
+    wallet:{irina:0,dima:340,sasha:210,lena:460,oleg:180,katya:45},
+    shift:[mkList('dima','waiter','open',3,'open'),mkList('dima','waiter','close',0,'open'),
+      mkList('sasha','cook','open',4,'submitted',n-50*60e3),mkList('sasha','cook','close',0,'open'),
+      mkList('lena','barista','open',4,'submitted',n-2*H),mkList('lena','barista','close',0,'open')],
+    rules:{ver:2,since:firstNext(-1),chkMin:95,chkCut:20,rateMin:4.7,rateCut:10,maxCut:50,disputeDays:7,allowance:50,notice:30,photoDays:30},
+    prem:{base:{dima:6000,sasha:7000,lena:6000,oleg:7000,katya:4000},
+      stats:{dima:{d:188,t:196},sasha:{d:186,t:200},lena:{d:241,t:246},oleg:{d:150,t:155},katya:{d:18,t:18}},
+      rating:4.76,ratingN:412},
+    goal:{prize:'Командный ужин за счёт заведения',rate:4.8,chk:95},
+    cuts:[
+      {id:'c1',who:'dima',clause:'4.2',reason:'Пришёл в 10:22, смена с 10:00. Не предупредил',ev:false,t:tm(2*DAY),status:'active',seen:false},
+      {id:'c2',who:'oleg',clause:'4.1',reason:'Пришёл в 8:10, смена с 8:00',ev:false,t:tm(4*DAY),status:'disputed',seen:true,dispute:{text:'Сломался автобус. Я написал Ирине в 7:40 и предупредил, что опоздаю',t:tm(3*DAY)}},
+      {id:'c3',who:'lena',clause:'4.1',reason:'Опоздала на 9 минут',ev:false,t:tm(12*DAY),status:'cancelled',seen:true,dispute:{text:'Я ждала инкассатора у входа, Ирина сама попросила',t:tm(12*DAY)},res:{text:'Да, это я попросила. Снижение отменяю',t:tm(11*DAY)}}],
+    thanks:[
+      {id:uid(),from:'lena',to:'dima',pts:10,msg:'Выручил в час пик: взял мои столики на веранде',t:tm(1*DAY)},
+      {id:uid(),from:'dima',to:'katya',pts:10,msg:'Первая неделя, а гости уже хвалят',t:tm(1*DAY)},
+      {id:uid(),from:'dima',to:'sasha',pts:15,msg:'Банкет на 12 человек, и ни одно блюдо не задержалось',t:tm(2*DAY)},
+      {id:uid(),from:'oleg',to:'katya',pts:5,msg:'Быстро учится: сама разобралась со стоп-листом',t:tm(2*DAY)},
+      {id:uid(),from:'sasha',to:'lena',pts:10,msg:'Подменила на раздаче, пока я принимал поставку',t:tm(3*DAY)},
+      {id:uid(),from:'irina',to:'oleg',pts:10,msg:'Вышел в субботу вместо заболевшего коллеги',t:tm(5*DAY)}],
+    rewards:[
+      {id:'r1',title:'Обед за счёт заведения',pts:60,kind:'Еда',since:firstNext(-1)},
+      {id:'r2',title:'Выбрать смену на следующей неделе',pts:120,kind:'График',since:firstNext(-1)},
+      {id:'r3',title:'Уйти на час раньше в спокойный день',pts:150,kind:'График',since:firstNext(-1)},
+      {id:'r4',title:'Выходной в удобный день',pts:400,kind:'График',since:firstNext(-1)},
+      {id:'r5',title:'Курс бариста: половину оплачивает кафе',pts:900,kind:'Учёба',since:firstNext(-1),next:{pts:1000,from:firstNext(2),told:n-2*DAY}}],
+    requests:[{id:'q1',who:'lena',rid:'r2',title:'Выбрать смену на следующей неделе',pts:120,note:'Суббота, утро',status:'pending',t:n-3*H}],
+    onb:{who:'katya',mentor:'dima',start:n-2*DAY,pts:20,bonus:50,items:[
+      {id:'o1',t:'Показать зал, кухню, склад и где что лежит',day:1,by:'mentor',done:true},
+      {id:'o2',t:'Разобрать меню: состав блюд и аллергены',day:1,by:'mentor',done:true},
+      {id:'o3',t:'Касса: открыть, разделить и закрыть чек',day:2,by:'mentor',done:true},
+      {id:'o4',t:'Пройти открытие и закрытие зала вместе',day:3,by:'mentor',done:false},
+      {id:'o5',t:'Первая самостоятельная смена, наставник рядом',day:4,by:'mentor',done:false},
+      {id:'o6',t:'Разговор с управляющей: что понятно, что сложно',day:5,by:'manager',done:false}]},
+    log:[
+      {id:uid(),t:n-1*DAY,kind:'shift',who:'dima',text:'Чек-лист принят: Закрытие зала (3 из 3)',delta:20},
+      {id:uid(),t:n-1*DAY,kind:'thanks',who:'dima',text:'Спасибо от Лены: «Выручил в час пик: взял мои столики на веранде»',delta:10},
+      {id:uid(),t:n-2*DAY,kind:'premium',who:'dima',text:'Снижение премии −10%, п. 4.2: опоздание больше 15 минут',delta:0},
+      {id:uid(),t:n-2*DAY,kind:'mentor',who:'dima',text:'Наставник для Кати: «Касса: открыть, разделить и закрыть чек»',delta:20},
+      {id:uid(),t:n-2*DAY,kind:'rules',who:null,text:'Объявлена новая цена: «Курс бариста» — 1 000 баллов с '+dstr(firstNext(2)),delta:0},
+      {id:uid(),t:n-2*DAY,kind:'rules',who:'katya',text:'Катя ознакомилась с положением о премировании',delta:0},
+      {id:uid(),t:n-3*DAY,kind:'dispute',who:'oleg',text:'Олег оспорил снижение по п. 4.1',delta:0},
+      {id:uid(),t:n-4*DAY,kind:'premium',who:'oleg',text:'Снижение премии −5%, п. 4.1: опоздание от 5 до 15 минут',delta:0},
+      {id:uid(),t:n-6*DAY,kind:'reward',who:'sasha',text:'Награда: Обед за счёт заведения',delta:-60},
+      {id:uid(),t:n-11*DAY,kind:'premium',who:'lena',text:'Снижение по п. 4.1 отменено: «Да, это я попросила. Снижение отменяю»',delta:0},
+      {id:uid(),t:n-12*DAY,kind:'premium',who:'lena',text:'Снижение премии −5%, п. 4.1: опоздание от 5 до 15 минут',delta:0},
+      {id:uid(),t:n-24*DAY,kind:'rules',who:null,text:'Все ознакомились с положением о премировании, редакция 2',delta:0}]
+  };
+}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===1&&s.people&&s.shift)return s}catch(e){}return null}
+let S=load()||seed();
+let UI={role:MGR,tab:'today'};
+try{Object.assign(UI,JSON.parse(localStorage.getItem(UIKEY))||{})}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem(UIKEY,JSON.stringify(UI))}catch(e){}}
+function persist(){save();const el=$('#saved');el.textContent='Сохранено';el.classList.add('flash');clearTimeout(persist.t);persist.t=setTimeout(()=>el.classList.remove('flash'),900)}
+let toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2800)}
+function commit(msg){persist();render();if(msg)toast(msg)}
+
+/* ---------- Помощники ---------- */
+const person=id=>S.people.find(p=>p.id===id);
+const nm=id=>person(id)?person(id).name:'';
+const mgr=()=>person(MGR);
+const isMgr=()=>UI.role===MGR;
+const STAFF=()=>S.people.filter(p=>p.id!==MGR);
+const g=(p,m,f)=>p&&p.f?f:m;
+const clause=id=>CUTS.find(c=>c.id===id);
+const cutById=id=>S.cuts.find(c=>c.id===id);
+const listById=id=>S.shift.find(l=>l.id===id);
+const doneOf=l=>l.items.filter(i=>i.done);
+const valOf=l=>doneOf(l).reduce((s,i)=>s+i.pts,0);
+const pending=w=>S.shift.filter(l=>l.who===w&&l.status!=='accepted').reduce((s,l)=>s+valOf(l),0);
+const reserved=w=>S.requests.filter(r=>r.who===w&&r.status==='pending').reduce((s,r)=>s+r.pts,0);
+const free=w=>Math.max(0,(S.wallet[w]||0)-reserved(w));
+const given=w=>S.thanks.filter(t=>t.from===w&&inMonth(t.t)).reduce((s,t)=>s+t.pts,0);
+const allowLeft=w=>Math.max(0,S.rules.allowance-given(w));
+const teamChk=()=>{let d=0,t=0;STAFF().forEach(p=>{const s=S.prem.stats[p.id];if(s){d+=s.d;t+=s.t}});return t?d/t:1};
+const perShift=w=>{const r=TPL[person(w).role];return r?r.open[1].length+r.close[1].length:8};
+function addLog(o){S.log.unshift(Object.assign({id:uid(),t:Date.now(),delta:0,who:null},o))}
+function empty(m){return `<p class="empty">${m}</p>`}
+function applyDue(){
+  let ch=false;
+  S.rewards.forEach(r=>{if(r.next&&r.next.from<=Date.now()){addLog({kind:'rules',text:`Новая цена вступила в силу: «${r.title}» — ${fmt(r.next.pts)}`});r.pts=r.next.pts;r.since=r.next.from;delete r.next;ch=true}});
+  if(ch)save();
+}
+function forecast(w,extra){
+  const R=S.rules,st=S.prem.stats[w]||{d:0,t:0},base=S.prem.base[w]||0,chk=st.t?st.d/st.t:1;
+  const chkOk=chk*100>=R.chkMin-1e-9,rOk=S.prem.rating>=R.rateMin-1e-9;
+  let cut=(chkOk?0:R.chkCut)+(rOk?0:R.rateCut),disp=0;
+  S.cuts.forEach(c=>{if(c.who!==w||c.status==='cancelled'||!inMonth(c.t))return;const p=clause(c.clause).pct;cut+=p;if(c.status==='disputed')disp+=p});
+  cut+=extra||0;
+  const p=100-Math.min(cut,R.maxCut),pWin=100-Math.min(cut-disp,R.maxCut);
+  return {p,sum:Math.round(base*p/100),base,chk,chkOk,rOk,cut,disp,pWin,sumWin:Math.round(base*pWin/100),capped:cut>R.maxCut};
+}
+function chkNeed(w){const st=S.prem.stats[w],k=S.rules.chkMin/100;return Math.max(0,Math.ceil((k*st.t-st.d)/(1-k)-1e-9))}
+function chkSpare(w){const st=S.prem.stats[w],k=S.rules.chkMin/100;return Math.max(0,Math.floor(st.d/k-st.t+1e-9))}
+function ring(p,size){
+  const r=60,c=2*Math.PI*r,off=c*(1-clamp(p));
+  return `<svg viewBox="0 0 148 148" width="${size}" height="${size}" aria-hidden="true"><circle cx="74" cy="74" r="${r}" class="ring-bg"/><circle cx="74" cy="74" r="${r}" class="ring-fg" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 74 74)"/></svg>`;
+}
+function hist(items,showWho){
+  if(!items.length)return empty('Пока пусто.');
+  return `<ul class="list">${items.map(l=>`<li><span>${showWho&&l.who?`<b>${esc(nm(l.who))}</b>: `:''}${esc(l.text)}<br><span class="d">${ago(l.t)}</span></span>${l.delta?`<span class="${l.delta>0?'plus':'minus'}">${l.delta>0?'+':'−'}${fmt(Math.abs(l.delta))}</span>`:''}</li>`).join('')}</ul>`;
+}
+
+/* ---------- Общие куски ---------- */
+function listBlock(l){
+  const dn=doneOf(l).length,all=l.items.length,ed=l.status==='open'||l.status==='returned',m=mgr();
+  const st={open:'',submitted:`<span class="pill wait">сдан, ждёт ${esc(m.gen)}</span>`,accepted:'<span class="pill ok">принят</span>',returned:'<span class="pill warn">вернули</span>'}[l.status];
+  return `<section class="block"><div class="block-head"><h2>${esc(l.title)}</h2><span class="row">${st}<span class="num muted small">${dn} из ${all}</span></span></div>
+  ${l.status==='returned'&&l.note?`<div class="banner warn"><span>${esc(m.name)}: «${esc(l.note)}»</span></div>`:''}
+  <ul class="duties">${l.items.map(i=>`<li><button class="duty ${i.done?'on':''}" data-act="tick" data-l="${l.id}" data-i="${i.id}" aria-pressed="${i.done}" ${ed?'':'disabled'}><span class="tick" aria-hidden="true"></span><span class="dt"><span>${esc(i.t)}</span>${i.photo?`<span class="pill ${i.photoOk?'ok':'hot'}">${i.photoOk?'фото есть':'нужно фото'}</span>`:''}</span><span class="dp">+${i.pts}</span></button></li>`).join('')}</ul>
+  ${ed?`<div class="row"><button class="btn sm primary" data-act="submitList" data-l="${l.id}" ${dn?'':'disabled'}>Сдать чек-лист</button><span class="hint">${dn<all?'Не всё отмечено: можно сдать и написать причину':'Всё готово, можно сдавать'}</span></div>`:''}
+  </section>`;
+}
+function onbBlock(viewer){
+  const o=S.onb,k=person(o.who),m=person(o.mentor),dn=o.items.filter(i=>i.done).length;
+  const day=Math.min(5,Math.max(1,Math.round((sod(Date.now())-sod(o.start))/DAY)+1));
+  const act=i=>{
+    if(i.done)return '<span class="pill ok">готово</span>';
+    if(viewer==='mentor'&&i.by==='mentor')return `<button class="btn sm" data-act="onb" data-id="${i.id}">${g(m,'Показал','Показала')}</button>`;
+    if(viewer==='mgr'&&i.by==='manager')return `<button class="btn sm" data-act="onb" data-id="${i.id}">Поговорили</button>`;
+    return `<span class="pill">${i.by==='mentor'?'у наставника':'у управляющей'}</span>`;
+  };
+  return `<section class="block"><div class="block-head"><h2>${viewer==='mentor'?`Наставник для ${esc(k.gen)}`:`Первая неделя: ${esc(k.name)}`}</h2><span class="pill wait">день ${day} из 5 · ${dn} из ${o.items.length}</span></div>
+  <p class="small">${viewer==='mentor'?`${esc(k.name)} — новый ${esc(k.job)}. Отмечай, что уже ${g(m,'показал','показала')}: за каждый пункт +${o.pts} баллов тебе. Когда пройдена вся неделя, ${esc(k.name)} получает +${o.bonus}.`:`Наставник — ${esc(m.name)}. За каждый пункт он получает +${o.pts} баллов, ${esc(k.name)} в конце недели +${o.bonus}.`}</p>
+  <ul class="steps">${o.items.map(i=>`<li class="${i.done?'done':''}"><span>${esc(i.t)}<br><span class="d">день ${i.day}</span></span>${act(i)}</li>`).join('')}</ul>
+  <p class="hint">Текучесть в кафе и ресторанах — около 30% в год (Контур, апрель 2025), так что новичков вводят в работу постоянно. Пусть помощь наставника будет видна и оплачена баллами, а не остаётся «нагрузкой сверху». Что это удерживает новичков — <span class="hyp">гипотеза</span>, её проверяет пилот.</p></section>`;
+}
+function meter(v,lo,hi,tg,label,valS,tgS){
+  const ok=v>=tg-1e-9;
+  return `<div class="bar-row"><div class="bar-top"><span>${label}</span><span class="num ${ok?'plus':'muted'}">${valS} · цель ${tgS}</span></div><div class="meter" role="img" aria-label="${label}: ${valS}, цель ${tgS}"><i class="${ok?'ok':''}" style="width:${(clamp((v-lo)/(hi-lo))*100).toFixed(1)}%"></i><b style="left:${(clamp((tg-lo)/(hi-lo))*100).toFixed(1)}%"></b></div></div>`;
+}
+function goalBlock(){
+  const G=S.goal,r=S.prem.rating,tc=teamChk(),done=r>=G.rate-1e-9&&tc*100>=G.chk-1e-9,dl=daysLeft();
+  return `<section class="block goal"><div class="block-head"><div><p class="eyebrow">Цель команды на ${monthName()}</p><h2>${esc(G.prize)}</h2></div><span class="pill ${done?'ok':'hot'}">${done?'цель достигнута':'осталось '+days(dl)}</span></div>
+  <div class="bars">${meter(r,4,5,G.rate,'Средняя оценка гостей',rateS(r),rateS(G.rate))}${meter(tc*100,80,100,G.chk,'Чек-листы всей команды',pctS(tc),G.chk+'%')}</div>
+  <p class="hint">Цель общая: дойдём вместе или не дойдём. Рейтинга сотрудников здесь нет специально. Оценки — ${fmt(S.prem.ratingN)} отзывов гостей за месяц (пример).</p></section>`;
+}
+function thanksFeed(me,limit){
+  return S.thanks.slice(0,limit||30).map(t=>`<div class="thx"><div class="thx-head"><span><b>${esc(nm(t.from))}</b> → <b>${esc(nm(t.to))}</b>${t.to===me?' <span class="pill hot">тебе</span>':''}</span><span class="plus">+${fmt(t.pts)}</span></div><q>${esc(t.msg)}</q><span class="d">${ago(t.t)}</span></div>`).join('')||empty('Пока никто никого не поблагодарил.');
+}
+function cutRow(c,viewer){
+  const cl=clause(c.clause),p=person(c.who),m=mgr(),st=c.status;
+  const pill={active:'<span class="pill warn">действует</span>',disputed:'<span class="pill wait">оспорено, ждёт решения</span>',confirmed:'<span class="pill warn">оставлено после спора</span>',cancelled:'<span class="pill ok">отменено</span>'}[st];
+  const th=[];
+  if(c.dispute)th.push(`<li class="by-emp"><span class="who">${esc(p.name)} · ${ago(c.dispute.t)}</span>${esc(c.dispute.text)}</li>`);
+  if(c.res)th.push(`<li class="by-mgr"><span class="who">${esc(m.name)} · ${ago(c.res.t)}</span>${esc(c.res.text)}</li>`);
+  let acts='';
+  if(viewer==='emp'&&st==='active'){const left=S.rules.disputeDays-Math.floor((Date.now()-c.t)/DAY);acts=left>0?`<div class="row"><button class="btn sm" data-act="dispute" data-id="${c.id}">Оспорить</button><span class="hint">можно ещё ${days(left)}</span></div>`:'<p class="hint">Срок, чтобы оспорить, прошёл.</p>'}
+  if(viewer==='mgr'&&st==='disputed')acts=`<div class="row"><button class="btn sm primary" data-act="resolve" data-res="cancel" data-id="${c.id}">Отменить снижение</button><button class="btn sm" data-act="resolve" data-res="keep" data-id="${c.id}">Оставить</button></div>`;
+  return `<div class="crit ${st==='cancelled'?'off':st==='disputed'?'wait':'bad'}"><span class="mark" aria-hidden="true"></span><div class="crit-main"><b>${viewer==='mgr'?esc(p.name)+' · ':''}п. ${cl.id}: ${esc(cl.t.toLowerCase())}</b><span class="small">«${esc(c.reason)}»</span><span class="tags">${pill}<span class="pill">${c.ev?'есть фото или запись':'без фото'}</span><span class="pill">${dstr(c.t)} · ${esc(m.name)}</span></span>${th.length?`<ul class="thread">${th.join('')}</ul>`:''}${acts}</div><span class="crit-eff">−${cl.pct}%</span></div>`;
+}
+function critRow(ok,n,title,need,eff){
+  return `<div class="crit ${ok?'ok':'bad'}"><span class="mark" aria-hidden="true"></span><div class="crit-main"><b>${title}</b><span class="hint">п. ${n} · ${need}</span></div><span class="crit-eff">${ok?'выполнено':eff}</span></div>`;
+}
+function reasonsShort(w,f){
+  const R=S.rules,a=[];
+  if(!f.chkOk)a.push(`чек-листы ${pctS(f.chk)} (п. 3.1)`);
+  if(!f.rOk)a.push('оценка гостей (п. 3.2)');
+  S.cuts.filter(c=>c.who===w&&c.status!=='cancelled'&&inMonth(c.t)).forEach(c=>a.push(`п. ${c.clause}${c.status==='disputed'?', спор':''}`));
+  if(f.capped)a.push(`предел ${R.maxCut}% (п. 5.2)`);
+  return a.length?a.join(' · '):'все условия выполнены';
+}
+function cutBanner(w){
+  const m=mgr(),out=[];
+  S.cuts.filter(c=>c.who===w&&!c.seen).forEach(c=>{const cl=clause(c.clause);
+    out.push(c.res?`<div class="banner ${c.status==='cancelled'?'pause':'warn'}"><span>${esc(m.name)} ${c.status==='cancelled'?'отменила':'оставила'} снижение по п. ${cl.id}: «${esc(c.res.text)}»</span><button class="btn sm" data-act="tab" data-tab="premium">Открыть</button></div>`
+      :`<div class="banner warn"><span>${esc(m.name)} записала снижение премии на ${cl.pct}% по п. ${cl.id}. Не согласны — оспорьте.</span><button class="btn sm" data-act="tab" data-tab="premium">Посмотреть</button></div>`)});
+  S.shift.filter(l=>l.who===w&&l.status==='returned').forEach(l=>out.push(`<div class="banner warn"><span>${esc(m.name)} вернула чек-лист «${esc(l.title)}»: «${esc(l.note)}»</span></div>`));
+  return out.join('');
+}
+
+/* ---------- Экраны сотрудника ---------- */
+const EV={};
+EV.shift=w=>{
+  const me=person(w),lists=S.shift.filter(l=>l.who===w),pend=pending(w),f=forecast(w),m=mgr();
+  return `${cutBanner(w)}<h1 class="screen-title">Смена</h1><p class="muted sub">${esc(me.name)}, ${esc(me.job)} · ${dstr(Date.now())} · пример кафе «${esc(S.cafe)}»</p>
+  <div class="stats"><button class="stat" data-act="tab" data-tab="rewards"><b>${fmt(free(w))}</b><span>баллов можно потратить</span></button><div class="stat"><b>+${fmt(pend)}</b><span>за смену, ждут ${esc(m.gen)}</span></div><button class="stat" data-act="tab" data-tab="premium"><b>${f.p}%</b><span>премии за ${monthName()}</span></button></div>
+  ${lists.map(listBlock).join('')||`<section class="block">${empty('Сегодня у вас нет смены.')}</section>`}
+  <p class="hint">Баллы за пункты зачисляются, когда ${esc(m.name)} принимает чек-лист. Пункты с пометкой «нужно фото» отмечаются с фотоотчётом: без геолокации, фото удаляется через ${S.rules.photoDays} дней, если по нему нет спора.</p>
+  ${w===S.onb.mentor?onbBlock('mentor'):''}`;
+};
+EV.thanks=w=>{
+  const left=allowLeft(w),mine=S.thanks.filter(t=>t.to===w&&inMonth(t.t)),got=mine.reduce((s,t)=>s+t.pts,0);
+  return `<h1 class="screen-title">Спасибо</h1>
+  <section class="block"><div class="wallet"><div><p class="eyebrow">Можно подарить в ${monthName()}</p><p class="bal">${pts(left)}</p><p class="hint">Из ${S.rules.allowance} на месяц. Не копятся и не тратятся на себя.</p></div><button class="btn accent" data-act="thank" ${left?'':'disabled'}>Сказать спасибо</button></div>
+  ${mine.length?`<p class="small">Тебе в этом месяце: <b class="plus">+${fmt(got)}</b> от ${mine.length} ${pl(mine.length,'коллеги','коллег','коллег')}.</p>`:''}</section>
+  ${goalBlock()}
+  <section class="block"><h2>Лента команды</h2><div>${thanksFeed(w)}</div><p class="hint">«Спасибо» видят все в кафе. Баллы получает тот, кого благодарят.</p></section>`;
+};
+EV.premium=w=>{
+  const f=forecast(w),R=S.rules,me=person(w),mine=S.cuts.filter(c=>c.who===w&&inMonth(c.t)),dl=daysLeft();
+  mine.forEach(c=>c.seen=true);S.cuts.filter(c=>c.who===w).forEach(c=>c.seen=true);save();
+  let adv='';
+  if(!f.chkOk){const need=chkNeed(w),sh=Math.ceil(need/perShift(w));
+    adv=sh<=dl?`Чтобы вернуть ${R.chkCut}% по п. 3.1, отметьте без пропусков ещё ${need} ${pl(need,'пункт','пункта','пунктов')}, это около ${sh} ${pl(sh,'смены','смен','смен')}. До конца месяца ${days(dl)}.`
+      :`До ${R.chkMin}% по п. 3.1 не хватает ${need} ${pl(need,'пункта','пунктов','пунктов')} без пропусков, это около ${sh} ${pl(sh,'смены','смен','смен')}. До конца месяца ${days(dl)}, так что в этом месяце, скорее всего, не успеть. С 1-го числа счёт начнётся заново.`}
+  else{const sp=chkSpare(w);adv=sp?`Запас по п. 3.1: можно пропустить ещё ${sp} ${pl(sp,'пункт','пункта','пунктов')} до конца месяца.`:`Запаса по п. 3.1 нет: любой пропущенный пункт опустит чек-листы ниже ${R.chkMin}%.`}
+  if(f.disp)adv+=` Если спор решат в вашу пользу, будет ${f.pWin}% (${rub(f.sumWin)}).`;
+  const rows=critRow(f.chkOk,'3.1',`Чек-листы смен: ${pctS(f.chk)}`,`нужно ${R.chkMin}% и больше`,`−${R.chkCut}%`)+critRow(f.rOk,'3.2',`Оценка гостей: ${rateS(S.prem.rating)}`,`нужно ${rateS(R.rateMin)} и больше`,`−${R.rateCut}%`)+mine.map(c=>cutRow(c,'emp')).join('');
+  return `<h1 class="screen-title">Премия</h1>
+  <section class="hero"><div class="ringbox">${ring(f.p/100,148)}<div class="ring-num"><b class="num">${f.p}%</b><span>премии</span></div></div>
+    <div class="txt"><p class="eyebrow">Премия за ${monthName()} · прогноз</p><h1>${rub(f.sum)}</h1><p class="small"><b>100% = ${rub(f.base)}, сейчас ${f.p}%</b></p><p class="small muted">${adv}</p></div></section>
+  <section class="block"><h2>Почему ${f.p}%</h2><div class="crits">${rows}</div>${f.capped?`<p class="hint">По п. 5.2 премия за месяц снижается не больше чем на ${R.maxCut}%.</p>`:''}</section>
+  <section class="block"><p class="small"><b>Из зарплаты ничего не вычитают.</b> Штрафов нет: премия может только снизиться, и только по пунктам положения, с которым вы ознакомились. С каждым снижением можно не согласиться в течение ${days(R.disputeDays)}.</p><div class="row"><button class="btn sm" data-act="tab" data-tab="rules">Читать положение</button></div></section>
+  <section class="block"><h2>История премии</h2>${hist(S.log.filter(l=>l.who===w&&(l.kind==='premium'||l.kind==='dispute')).slice(0,8))}</section>`;
+};
+EV.rewards=w=>{
+  const f=free(w),pend=pending(w),res=reserved(w),m=mgr();
+  const items=S.rewards.map(r=>{const ok=f>=r.pts;return `<div class="task"><div class="task-main"><div class="task-title">${esc(r.title)}</div><div class="tags"><span class="pill">${esc(r.kind)}</span><span class="pill">цена с ${dstr(r.since)}</span>${r.next?`<span class="pill warn">с ${dstr(r.next.from)}: ${fmt(r.next.pts)}</span>`:''}</div></div><div class="task-side"><div class="task-pts num">${fmt(r.pts)}</div><button class="btn sm" data-act="buy" data-id="${r.id}" ${ok?'':'disabled'}>${ok?'Взять':'ещё '+fmt(r.pts-f)}</button></div></div>`}).join('');
+  const st={pending:`<span class="pill wait">ждёт ${esc(m.gen)}</span>`,done:'<span class="pill ok">выдано</span>',declined:'<span class="pill warn">отказ, баллы вернулись</span>'};
+  const reqs=S.requests.filter(r=>r.who===w).slice(-4).reverse();
+  return `<h1 class="screen-title">Награды</h1>
+  <section class="block"><div class="wallet"><div><p class="eyebrow">Можно потратить</p><p class="bal">${pts(f)}</p>${pend?`<p class="hint">Ещё +${fmt(pend)} за сегодняшнюю смену, после проверки</p>`:''}${res?`<p class="hint">${pts(res)} отложены под награду</p>`:''}</div></div>
+  <p class="hint">Баллы — не деньги и не часть зарплаты. Они не сгорают.</p></section>
+  ${S.rewards.filter(r=>r.next).map(r=>`<div class="banner gold"><span><b>Цена изменится, но не сразу.</b> «${esc(r.title)}»: ${fmt(r.pts)} → ${fmt(r.next.pts)} с ${dstr(r.next.from)}. Объявлено ${dstr(r.next.told)}. До этой даты можно взять по старой цене (п. 6.2).</span></div>`).join('')}
+  <section class="block"><div class="block-head"><h2>Что можно получить</h2><button class="btn sm ghost" data-act="tab" data-tab="rules">Цены в положении</button></div>${items}
+  <p class="hint">Цены записаны в положении и меняются только с предупреждением за ${days(S.rules.notice)}.</p></section>
+  ${reqs.length?`<section class="block"><h2>Мои просьбы</h2><ul class="list">${reqs.map(r=>`<li><span>${esc(r.title)}${r.reason?`<br><span class="d">«${esc(r.reason)}»</span>`:''}<br><span class="d">${ago(r.t)}</span></span><span class="r">${st[r.status]}</span></li>`).join('')}</ul></section>`:''}
+  <section class="block"><h2>История баллов</h2>${hist(S.log.filter(l=>l.who===w&&l.delta).slice(0,8))}</section>`;
+};
+EV.rules=w=>rulesView(w);
+
+/* ---------- Экраны управляющей ---------- */
+const MV={};
+function subCard(l){
+  const dn=doneOf(l),miss=l.items.filter(i=>!i.done),ph=l.items.filter(i=>i.photo&&i.photoOk).length;
+  return `<div class="check"><div class="task"><div class="task-main"><div class="task-title">${esc(nm(l.who))} · ${esc(l.title)}</div><div class="task-meta">${dn.length} из ${l.items.length} · сдан в ${hm(l.sub)}</div>
+    <div class="tags">${ph?`<button type="button" class="pill ok" data-act="photos" data-l="${l.id}">фото: ${ph}, посмотреть</button>`:''}${miss.map(i=>`<span class="pill warn">не сделано: ${esc(i.t)}</span>`).join('')}</div>${l.reason?`<p class="small">Причина: «${esc(l.reason)}»</p>`:''}</div>
+    <div class="task-side"><div class="task-pts num">+${fmt(valOf(l))}</div></div></div>
+    <div class="check-acts"><button class="btn sm primary" data-act="accept" data-l="${l.id}">Принять</button><button class="btn sm ghost" data-act="ret" data-l="${l.id}">Вернуть</button></div></div>`;
+}
+function premList(){
+  const st=STAFF(),fs=st.map(p=>[p,forecast(p.id)]),tot=fs.reduce((s,[,f])=>s+f.sum,0),base=fs.reduce((s,[,f])=>s+f.base,0);
+  return `<ul class="list">${fs.map(([p,f])=>`<li><span><b>${esc(p.name)}</b> · ${esc(p.job)}<br><span class="d">${reasonsShort(p.id,f)}</span></span><span class="r"><b class="num">${rub(f.sum)}</b><br><span class="pill ${f.p===100?'ok':'warn'}">${f.p}%</span></span></li>`).join('')}</ul>
+  <p class="small">Всего <b>${rub(tot)}</b> из ${rub(base)} возможных. Премия управляющей считается у владельца и здесь не показана.</p>
+  <div class="row"><button class="btn sm" data-act="export">Выгрузить для бухгалтерии</button></div>`;
+}
+MV.today=()=>{
+  const sub=S.shift.filter(l=>l.status==='submitted'),disp=S.cuts.filter(c=>c.status==='disputed'),reqs=S.requests.filter(r=>r.status==='pending');
+  const onShift=S.people.filter(p=>S.shift.some(l=>l.who===p.id));
+  const all=S.shift.reduce((s,l)=>s+l.items.length,0),dn=S.shift.reduce((s,l)=>s+doneOf(l).length,0);
+  const off=STAFF().filter(p=>p.off).map(p=>p.name),nw=STAFF().filter(p=>p.isNew).map(p=>p.name);
+  return `<h1 class="screen-title">Сегодня</h1><p class="muted sub">Кафе «${esc(S.cafe)}», 6 человек · ${dstr(Date.now())}. Все данные — пример, они хранятся только в этом браузере.</p>
+  <div class="stats"><div class="stat"><b>${all?Math.round(dn/all*100):0}%</b><span>смены готово</span></div><div class="stat"><b>${sub.length}</b><span>принять</span></div><div class="stat"><b>${disp.length}</b><span>${pl(disp.length,'спор','спора','споров')} о премии</span></div></div>
+  <section class="block"><div class="block-head"><h2>Принять чек-листы</h2>${sub.length>1?'<button class="btn sm primary" data-act="acceptAll">Принять все</button>':''}</div>
+  ${sub.map(subCard).join('')||empty('Всё принято. Новые появятся, когда сотрудники сдадут чек-листы.')}</section>
+  <section class="block"><h2>Смена сейчас</h2><div class="bars">${onShift.map(p=>{const ls=S.shift.filter(l=>l.who===p.id),d=ls.reduce((s,l)=>s+doneOf(l).length,0),t=ls.reduce((s,l)=>s+l.items.length,0);
+    return `<div class="bar-row"><div class="bar-top"><span><b>${esc(p.name)}</b> · ${esc(p.job)}</span><span class="num muted">${ls.map(l=>`${esc(l.kind==='open'?'открытие':'закрытие')} ${doneOf(l).length}/${l.items.length}`).join(' · ')}</span></div><div class="bar"><i class="${d===t?'ok':''}" style="width:${(t?d/t*100:0).toFixed(1)}%"></i></div></div>`}).join('')}</div>
+  <p class="hint">${off.length?esc(off.join(', '))+': сегодня выходной. ':''}${nw.length?esc(nw.join(', '))+': первая неделя, работает с наставником.':''}</p></section>
+  <section class="block"><h2>Споры о премии</h2><div class="crits">${disp.map(c=>cutRow(c,'mgr')).join('')||empty('Открытых споров нет.')}</div></section>
+  <section class="block"><h2>Награды к выдаче</h2>${reqs.length?`<ul class="list">${reqs.map(r=>`<li><span><b>${esc(nm(r.who))}</b>: ${esc(r.title)}${r.note?` <span class="d">· «${esc(r.note)}»</span>`:''}<br><span class="d">${pts(r.pts)} · ${ago(r.t)}</span></span><span class="row"><button class="btn sm primary" data-act="reqOk" data-id="${r.id}">Выдать</button><button class="btn sm ghost" data-act="reqNo" data-id="${r.id}">Отказать</button></span></li>`).join('')}</ul>`:empty('Просьб нет.')}</section>
+  ${goalBlock()}
+  <section class="block"><h2>Премия за ${monthName()}: прогноз</h2>${premList()}</section>`;
+};
+MV.team=()=>{
+  const left=allowLeft(MGR);
+  return `<h1 class="screen-title">Команда</h1>
+  <section class="block"><h2>Кафе «${esc(S.cafe)}»: ${S.people.length} человек</h2><ul class="list people">${S.people.map(p=>{const got=S.thanks.filter(t=>t.to===p.id&&inMonth(t.t)).length;
+    return `<li><span class="who"><span class="av ${p.id===MGR?'m':''}" aria-hidden="true">${esc(p.name[0])}</span><span><b>${esc(p.name)}</b> · ${esc(p.job)}<br><span class="d">${p.id===MGR?'управляет сменой':p.off?'сегодня выходной':p.isNew?'первая неделя':'на смене'}${got?` · «спасибо»: ${got}`:''}</span></span></span>${p.id===MGR?'':`<span class="r num">${pts(S.wallet[p.id]||0)}</span>`}</li>`}).join('')}</ul>
+  <p class="hint">Здесь нет рейтинга «лучший сотрудник месяца»: у команды одна общая цель.</p></section>
+  ${onbBlock('mgr')}
+  ${goalBlock()}
+  <section class="block"><div class="block-head"><h2>Спасибо в команде</h2><button class="btn sm accent" data-act="thank" ${left?'':'disabled'}>Сказать спасибо</button></div><div>${thanksFeed(MGR)}</div><p class="hint">У каждого, и у вас тоже, ${S.rules.allowance} баллов в месяц на благодарности. У вас осталось ${pts(left)}.</p></section>`;
+};
+MV.premium=()=>{
+  const R=S.rules,cs=S.cuts.filter(c=>inMonth(c.t));
+  return `<h1 class="screen-title">Премия</h1><p class="muted sub">Прогноз за ${monthName()} по положению, редакция ${R.ver}.</p>
+  <div class="row"><button class="btn primary" data-act="newCut">Записать снижение премии</button><button class="btn locked" data-act="noFine">${LOCK}Штраф в рублях</button></div>
+  <section class="block"><h2>Кто сколько получит</h2>${premList()}</section>
+  <section class="block"><h2>Снижения за ${monthName()}</h2><div class="crits">${cs.map(c=>cutRow(c,'mgr')).join('')||empty('Снижений нет.')}</div></section>
+  <section class="block"><h2>Почему здесь нет штрафов</h2><p class="small">Денежные штрафы работникам запрещены: в ст. 192 ТК РФ закрытый список взысканий (замечание, выговор, увольнение), а за штраф работодатель отвечает по ст. 5.27 КоАП. Законный путь — снизить премию, если это условие заранее записано в положении о премировании (письмо Роструда от 18.12.2014 № 3251-6-1).</p>
+  <p class="hint">Источники: Моё дело; Главкнига, 06.08.2024. За незаконное лишение премии — штраф до 50 тыс. ₽ (Эксперт, дата не указана). Это не юридическая консультация: своё положение покажите юристу.</p></section>`;
+};
+MV.rules=()=>rulesView(MGR);
+
+/* ---------- Положение ---------- */
+function rulesView(viewer){
+  const R=S.rules,b=S.prem.base,m=mgr();
+  const li=(n,t)=>`<li data-n="${n}"><div>${t}</div></li>`;
+  const sec=(h,items)=>`<div><h3>${h}</h3><ol class="cls">${items.join('')}</ol></div>`;
+  const staff=STAFF();
+  const paper=`<section class="paper"><span class="stamp">ДЕЙСТВУЕТ</span><div class="paper-head"><h2>Положение о премировании</h2><p class="ver">Кафе «${esc(S.cafe)}» · редакция ${R.ver}, действует с ${dstr(R.since)} · пример</p></div>
+  ${sec('1. Общее',[li('1.1','Премия — часть оплаты труда сверх оклада. Её считают за календарный месяц и платят вместе с зарплатой.'),li('1.2','Каждый сотрудник в любой день видит прогноз своей премии и все причины, из-за которых она меняется.')])}
+  ${sec('2. Размер премии при 100%',[li('2.1',`Официант и бариста — ${rub(b.dima)}, повар — ${rub(b.sasha)}, стажёр — ${rub(b.katya)} в месяц.`)])}
+  ${sec('3. Показатели месяца',[li('3.1',`Чек-листы смен выполнены на ${R.chkMin}% и больше. Если меньше, премия ниже на ${R.chkCut}%.`),li('3.2',`Средняя оценка гостей за месяц — ${rateS(R.rateMin)} и выше. Если ниже, премия ниже на ${R.rateCut}%.`)])}
+  ${sec('4. Нарушения: на сколько снижается премия',CUTS.map(c=>li(c.id,`${esc(c.t)} — на ${c.pct}%.`)))}
+  ${sec('5. Как снижают премию',[li('5.1','Только по пунктам разделов 3 и 4. Причину пишут всегда, фото или запись прикладывают, когда они есть.'),li('5.2',`За месяц премия снижается не больше чем на ${R.maxCut}%.`),li('5.3',`Сотрудник видит запись сразу и может оспорить её в течение ${days(R.disputeDays)}. Управляющая отвечает с комментарием: оставляет снижение или отменяет его. Всё остаётся в истории.`),li('5.4','Денежных штрафов нет. Из зарплаты ничего не удерживается.')])}
+  ${sec('6. Баллы и награды',[li('6.1','Баллы — не деньги и не часть зарплаты. Их дают за пункты чек-листов, помощь новичкам и «спасибо» от коллег. Баллы не сгорают.'),li('6.2',`Цены наград указаны ниже. Новая цена начинает действовать не раньше чем через ${days(R.notice)} после объявления. До этого награду можно взять по старой цене.<ul class="plist">${S.rewards.map(r=>`<li><span>${esc(r.title)}</span><span class="num">${fmt(r.pts)}${r.next?` → ${fmt(r.next.pts)} с ${dstr(r.next.from)}`:''}</span></li>`).join('')}</ul>`)])}
+  ${sec('7. Фото и данные',[li('7.1',`Фото нужны только для отмеченных пунктов чек-листов и как подтверждение нарушения. Геолокация не собирается. Фото удаляются через ${days(R.photoDays)}, если по ним нет спора.`)])}
+  ${sec('8. Изменения',[li('8.1','Новая редакция действует с 1-го числа следующего месяца, когда все с ней ознакомятся. Задним числом ничего не меняется.')])}
+  <div class="signs"><div class="sign"><span class="hand">${esc(m.name)}</span><span class="who">Утвердила: ${esc(m.name)}, ${esc(m.job)}</span></div>${staff.map(p=>`<div class="sign"><span class="hand">${esc(p.name)}</span><span class="who">${g(p,'Ознакомлен','Ознакомлена')}: ${esc(p.name)}</span></div>`).join('')}</div></section>`;
+  if(viewer!==MGR)return `<h1 class="screen-title">Положение</h1>${paper}<div class="row"><button class="btn sm" data-act="tab" data-tab="premium">← К моей премии</button><button class="btn sm ghost" data-act="tab" data-tab="rewards">К наградам</button></div>`;
+  return `<h1 class="screen-title">Положение</h1>${paper}
+  <p class="hint">Это шаблон-пример. Прежде чем вводить положение в настоящем кафе, покажите его юристу.</p>
+  <section class="block"><div class="block-head"><h2>Цены наград</h2><button class="btn sm" data-act="priceChange">Изменить цену</button></div>
+  <ul class="list">${S.rewards.map(r=>`<li><span>${esc(r.title)}${r.next?`<br><span class="d">с ${dstr(r.next.from)}: ${fmt(r.next.pts)}, объявлено ${dstr(r.next.told)}</span>`:''}</span><span class="r num">${fmt(r.pts)}</span></li>`).join('')}</ul>
+  <p class="hint">Цену нельзя поменять сразу. Новая начнёт действовать через ${days(R.notice)} или позже, и команда увидит объявление.</p></section>
+  <section class="block"><h2>Пример кафе</h2><p class="small">Все люди и цифры здесь — пример. Они хранятся только в этом браузере.</p><div class="row"><button class="btn sm ghost" data-act="reset">Вернуть пример к началу</button></div></section>
+  <section class="block"><h2>История</h2>${hist(S.log.slice(0,16),true)}</section>`;
+}
+
+/* ---------- Проблемы и решения ---------- */
+const PROBLEMS=[
+ {id:'turn',p:'Люди уходят: текучесть в кафе и ресторанах около 30% в год, в отдельных компаниях 70–80%',src:'Контур, апрель 2025 (первоисточник цифры не назван); причины — выгорание, длинные смены, график: Контур, октябрь 2025',s:'Первая неделя новичка идёт по чек-листу с наставником, и наставник получает баллы за помощь. В наградах — то, что касается графика: выбрать смену, выходной в удобный день. Что это снижает текучесть — гипотеза для пилота.',role:'irina',tab:'team'},
+ {id:'short',p:'Людей не хватает: нехватка персонала 20–30%, спрос на официантов и барменов вырос на 30%',src:'оценки рестораторов: Москвич Mag, Коммерсантъ FM (дата не указана); hh.ru, январь–сентябрь 2024',s:'Смена не держится на памяти одного человека: у каждой роли чек-листы открытия и закрытия в телефоне, а управляющая видит прогресс и принимает чек-лист в одно касание.',role:'irina',tab:'today'},
+ {id:'law',p:'Денежные штрафы работникам запрещены законом',src:'ст. 192 ТК РФ, ст. 5.27 КоАП (Моё дело); письмо Роструда от 18.12.2014 № 3251-6-1 (Главкнига, 06.08.2024)',s:'Кнопки «штраф в рублях» нет, на её месте — объяснение. Управляющая может только снизить премию по пункту положения и ровно на тот процент, который в нём записан.',role:'irina',tab:'premium'},
+ {id:'know',p:'Штрафуют массово, а люди не знают, что это незаконно: треть сталкивалась со штрафами, 57% не знали о запрете',src:'опрос Работа.ру, Lenta.ru, 22.11.2021',s:'Правило встроено в интерфейс, а не спрятано в инструкции. Положение о премировании открыто каждому сотруднику, а в прогнозе премии написано: из зарплаты ничего не вычитают.',role:'dima',tab:'rules'},
+ {id:'unfair',p:'За незаконное лишение премии — штраф до 50 тыс. ₽, работник может пожаловаться в трудовую инспекцию',src:'Эксперт, со слов члена Общественной палаты, дата не указана',s:'Каждое снижение привязано к пункту, причина обязательна, фото по желанию. Сотрудник может оспорить снижение в течение 7 дней, управляющая отвечает с комментарием. Всё остаётся в истории.',role:'dima',tab:'premium'},
+ {id:'clear',p:'Сотрудник не понимает, за что ему дали или не дали премию',src:'Контур: понятная схема бонусов напрямую влияет на мотивацию (мнение автора о рознице, дата не указана)',s:'Живой прогноз: «100% = 7 000 ₽, сейчас 80%» и каждая причина отдельной строкой. Если показатель проседает, видно, сколько пунктов осталось сделать до конца месяца.',role:'sasha',tab:'premium'},
+ {id:'pts',p:'Баллы обесцениваются, подарки в магазине наград переоценены, у баллов есть срок сгорания',src:'отзывы о Workhuman на Capterra AU, дата не указана',s:'Цены наград записаны в положении. Новая цена начинает действовать не раньше чем через 30 дней после объявления, до этого можно взять по старой. Баллы не сгорают.',role:'lena',tab:'rewards'},
+ {id:'saby',p:'Главный конкурент в России — Saby «Мотивация и геймификация»: от 7 000 ₽ в год, диапазон 7 000–23 000 ₽',src:'saby.ru/staff/game, по выдержке 24.10.2026',s:'У Saby есть валюта, магазин подарков и «спасибки», но лучше всего он работает со своей кассой Presto. Приложения чек-листов (Joobby, МЕРАСОФТ) умеют фото и время, но без баллов и премии. Наше отличие: без установки, с любой кассой, законная премия и шаблон положения сразу. Важно ли это кафе — гипотеза.',role:null},
+ {id:'evid',p:'Польза геймификации на работе доказана слабо: эффект малый или средний, в основном на обучение',src:'метаанализ в обзоре IOGP; обзор PMC; даты не указаны',s:'Продаём не «вовлечённость», а результаты, которые видно сразу: процент выполненных чек-листов, опоздания, споры о премии. Всё это на экране «Сегодня».',role:'irina',tab:'today'},
+ {id:'rank',p:'Плохо устроенная геймификация может навредить, результат сильно зависит от механики',src:'обзор PMC, дата не указана; вывод в заметках к исследованию, 24.10.2026',s:'Вместо рейтинга, где кто-то всегда последний, — общая цель: «оценка гостей 4,8 → командный ужин». Что рейтинг в маленькой команде скорее вредит — наш вывод, а не доказанный факт.',role:'lena',tab:'thanks'},
+ {id:'photo',p:'Фото сотрудника — персональные данные, а штрафы за нарушения выросли с 30.05.2025',src:'ppt.ru; Главкнига, 2025; Точка, 2025 (за повторную утечку — до 500 млн ₽)',s:'Фото нужно только для отмеченных пунктов, например «Проверить сроки в холодильнике». Геолокации нет. Фото видят сотрудник и управляющая, оно удаляется через 30 дней, если нет спора.',role:'sasha',tab:'shift'},
+ {id:'app',p:'Готового мини-приложения для персонала кафе в мессенджере нет, есть только заказные разработки',src:'workspace.ru; поиск 24.10.2026',s:'Настоящий продукт — мини-приложение в MAX и Telegram: сотрудник открывает его по ссылке из чата смены и ничего не устанавливает. Этот прототип — его макет.',role:null}
+];
+const WHY={'e:shift':['photo','short','evid'],'e:thanks':['rank','turn'],'e:premium':['clear','unfair','law'],'e:rewards':['pts','turn'],'rules':['law','know','unfair','pts'],
+  'm:today':['evid','short','clear'],'m:team':['turn','rank'],'m:premium':['law','know','unfair']};
+function whyCard(x,withBtn){return `<div class="why-card"><span class="p">Проблема: ${esc(x.p)}</span><span class="src">${esc(x.src)}</span><span class="s">${esc(x.s)}</span>${withBtn&&x.role?`<div><button class="btn sm" data-act="goto" data-role="${x.role}" data-tab="${x.tab}">Показать в прототипе</button></div>`:''}</div>`}
+function whyList(){const key=UI.tab==='rules'?'rules':(isMgr()?'m:':'e:')+UI.tab;return (WHY[key]||[]).map(id=>PROBLEMS.find(p=>p.id===id)).filter(Boolean)}
+function whyAside(){
+  if(UI.tab==='solutions')return `<div class="why"><div class="why-head"><h2>Как пользоваться</h2></div><div class="why-card"><span class="s">Переключайтесь вверху между Ириной и сотрудниками: это одно кафе глазами разных людей. Нажмите «Показать в прототипе», чтобы перейти к нужному месту.</span></div></div>`;
+  return `<div class="why"><div class="why-head"><h2>Почему так сделано</h2><button class="btn sm ghost" data-act="solutions">Все ${PROBLEMS.length} решений</button></div>${whyList().map(x=>whyCard(x,false)).join('')}</div>`;
+}
+function whyInline(){const l=whyList();if(!l.length)return '';return `<details class="why-inline"><summary>Почему так сделано</summary>${l.map(x=>whyCard(x,false)).join('')}</details>`}
+function vSolutions(){
+  return `<h1 class="screen-title">Проблемы и решения</h1>
+  <p class="muted">Что мы нашли в исследовании и как прототип это решает. Источники и даты подробно описаны в отчёте.</p>
+  <div class="sol">${PROBLEMS.map(x=>whyCard(x,true)).join('')}</div>
+  <section class="block"><h2>Что нужно для настоящего продукта</h2><ul class="future">
+    <li><span><b>Мини-приложение в MAX и Telegram.</b> Сотрудник входит по ссылке из чата смены. Держать оба: с 10.02.2026 Telegram в России замедляют (РБК), а в июне 2026 года MAX впервые обошёл его по месячному охвату (Techora, 24.07.2026, по выдержке).</span></li>
+    <li><span><b>Серверы в России.</b> Данные хранятся у нас, а не в мессенджере. Нужно уведомить Роскомнадзор об обработке персональных данных.</span></li>
+    <li><span><b>Интеграция с iiko и r_keeper — неизвестно, возможна ли.</b> Не найдено, есть ли у них открытый доступ к продажам по официантам. Это нужно проверить до разработки. Пока её нет, оценки гостей и выручку вносят вручную.</span></li>
+    <li><span><b>Фото хранятся недолго</b>, только для отмеченных пунктов и споров. Геолокация по умолчанию выключена.</span></li>
+    <li><span><b>Шаблон положения, проверенный юристом</b>, и выгрузка для бухгалтерии. Премия — часть оплаты труда, баллы и награды учитываются отдельно. Как облагаются призы, ещё не проверено.</span></li>
+    <li><span><b>Цена.</b> Бесплатно до 10 сотрудников (так делают Connecteam и Bonusly), дальше 500–1 500 ₽ за точку в месяц <span class="hyp">гипотеза</span>. Данных о том, сколько кафе готовы платить, нет. Для сравнения: Saby — от 7 000 ₽ в год, 7shifts — $39,99–89,99 за точку в месяц (hivedesk.com, 2026).</span></li>
+    <li><span><b>Продажи</b> — лично, через интеграторов касс и ресторанные сообщества. Сколько длится сделка, неизвестно.</span></li>
+  </ul></section>
+  <section class="block"><h2>Как понять, что идея работает</h2><p class="small">Пилот: 3–5 кафе на месяц <span class="hyp">гипотеза</span>. Смотрим:</p><ul class="future">
+    <li><span>Через месяц чек-листы выполняются на 95% и больше.</span></li>
+    <li><span>Споров о премии меньше, чем в прошлом месяце, и каждый закрыт с комментарием.</span></li>
+    <li><span>Управляющая принимает чек-листы в тот же день.</span></li>
+    <li><span>Хотя бы одно кафе готово платить после пилота.</span></li>
+  </ul></section>`;
+}
+
+/* ---------- Отрисовка ---------- */
+const TABS={mgr:[['today','Сегодня'],['team','Команда'],['premium','Премия'],['rules','Положение']],emp:[['shift','Смена'],['thanks','Спасибо'],['premium','Премия'],['rewards','Награды']]};
+function badge(tab){
+  if(isMgr()){if(tab==='today')return S.shift.filter(l=>l.status==='submitted').length+S.cuts.filter(c=>c.status==='disputed').length+S.requests.filter(r=>r.status==='pending').length;return 0}
+  const w=UI.role;
+  if(tab==='premium')return S.cuts.filter(c=>c.who===w&&!c.seen).length;
+  if(tab==='shift')return S.shift.filter(l=>l.who===w&&l.status==='returned').length;
+  return 0;
+}
+function render(){
+  applyDue();
+  if(!SWITCH.includes(UI.role))UI.role=MGR;
+  const tabs=TABS[isMgr()?'mgr':'emp'];
+  if(UI.tab!=='solutions'&&UI.tab!=='rules'&&!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
+  $('#roles').innerHTML=`<span class="roles-label">Смотреть как:</span>`+SWITCH.map(id=>{const p=person(id);return `<button class="role ${id===MGR?'parent':''}" role="tab" aria-selected="${UI.role===id}" data-act="role" data-role="${id}"><span class="av" aria-hidden="true">${esc(p.name[0])}</span>${esc(p.name)}<span class="rj"> · ${esc(p.job)}</span></button>`}).join('');
+  $('#screen').innerHTML=UI.tab==='solutions'?vSolutions():(isMgr()?MV:EV)[UI.tab](UI.role)+whyInline();
+  $('#tabs').innerHTML=tabs.map(([id,l])=>{const b=badge(id);return `<button class="tab" role="tab" aria-selected="${UI.tab===id}" data-act="tab" data-tab="${id}"><span class="tl">${l}${b?`<span class="badge">${b}</span>`:''}</span></button>`}).join('');
+  $('#why').innerHTML=whyAside();
+}
+
+/* ---------- Окно формы ---------- */
+let onSubmit=null;
+function sheet(title,body,ok,fn,info){$('#sheet-title').textContent=title;$('#sheet-body').innerHTML=body;$('#sheet-ok').textContent=ok;$('#sheet-no').hidden=!!info;$('#sheet-err').textContent='';onSubmit=fn;$('#sheet').hidden=false;setTimeout(()=>{const f=$('#sheet-body').querySelector('input:not([type=radio]),select,textarea');(f||$('#sheet-ok')).focus()},40)}
+function closeSheet(){$('#sheet').hidden=true;onSubmit=null}
+$('#sheet-form').addEventListener('submit',e=>{e.preventDefault();if(!onSubmit)return;const f=Object.fromEntries(new FormData(e.target));const err=onSubmit(f);if(err){$('#sheet-err').textContent=err;return}closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+const fld=(id,label,input)=>`<div class="fld"><label for="${id}">${label}</label>${input}</div>`;
+const numIn=(id,name,val,min,max)=>`<input id="${id}" name="${name}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${val}">`;
+const int=v=>{const n=Math.round(Number(v));return Number.isFinite(n)?n:NaN};
+function cutPreview(){
+  const el=$('#f-prev');if(!el)return;
+  const w=$('#f-who').value,c=clause($('#f-cl').value),a=forecast(w),b=forecast(w,c.pct),p=person(w);
+  el.innerHTML=`<span>Премия ${esc(p.gen)} за ${monthName()}: <b>${a.p}% → ${b.p}%</b> (${rub(a.sum)} → ${rub(b.sum)})${b.capped?`. По п. 5.2 больше чем на ${S.rules.maxCut}% снизить нельзя`:''}</span>`;
+}
+document.addEventListener('input',e=>{if(e.target.closest&&e.target.closest('#sheet-body'))cutPreview()});
+document.addEventListener('change',e=>{if(e.target.closest&&e.target.closest('#sheet-body'))cutPreview()});
+
+/* ---------- Действия ---------- */
+function acceptList(l){
+  const dn=doneOf(l),v=valOf(l),st=S.prem.stats[l.who];
+  S.wallet[l.who]=(S.wallet[l.who]||0)+v;if(st){st.d+=dn.length;st.t+=l.items.length}
+  l.status='accepted';addLog({kind:'shift',who:l.who,text:`Чек-лист принят: ${l.title} (${dn.length} из ${l.items.length})`,delta:v});return v;
+}
+const ACT={
+  role:d=>{const was=isMgr();UI.role=d.role;if(UI.tab!=='solutions'&&was!==isMgr())UI.tab=TABS[isMgr()?'mgr':'emp'][0][0];commit();scrollTo(0,0)},
+  tab:d=>{UI.tab=d.tab;commit();scrollTo(0,0)},
+  solutions:()=>{UI.tab='solutions';commit();scrollTo(0,0)},
+  goto:d=>{UI.role=d.role;UI.tab=d.tab;commit();scrollTo(0,0)},
+  closeSheet,
+  tick:d=>{
+    const l=listById(d.l),i=l.items.find(x=>x.id===d.i),m=mgr();
+    if(i.done){i.done=false;i.photoOk=false;commit('Отметка снята');return}
+    if(i.photo){
+      sheet('Фотоотчёт',`<p class="small"><b>${esc(i.t)}</b> · +${pts(i.pts)}</p><div class="photo-ph" aria-hidden="true"><span>Здесь откроется камера</span></div>
+        <div class="fld check"><input id="f-ph" name="ph" type="checkbox" class="switch"><label for="f-ph">Фото приложено</label></div>
+        <p class="hint">В прототипе камеры нет: достаточно включить переключатель. Геолокация не записывается. Фото видят только вы и ${esc(m.name)}, оно удаляется через ${days(S.rules.photoDays)}, если по нему нет спора.</p>`,
+        'Отметить',f=>{if(!f.ph)return 'Для этого пункта нужно фото: включите «Фото приложено».';i.done=true;i.photoOk=true;commit(`+${pts(i.pts)}. Зачислятся, когда ${m.name} примет чек-лист`)});
+      return;
+    }
+    i.done=true;commit(`+${pts(i.pts)}. Зачислятся, когда ${m.name} примет чек-лист`);
+  },
+  submitList:d=>{
+    const l=listById(d.l),miss=l.items.filter(i=>!i.done),m=mgr();
+    const go=r=>{l.status='submitted';l.sub=Date.now();l.reason=r||'';l.note='';commit(`Сдано. ${m.name} проверит и зачислит баллы`)};
+    if(!miss.length){go('');return}
+    sheet('Сдать не всё?',`<p class="small">Не отмечено: ${miss.map(i=>'«'+esc(i.t)+'»').join(', ')}. Эти пункты пойдут в процент чек-листов (п. 3.1).</p>`+fld('f-r','Почему не получилось',`<input id="f-r" name="r" maxlength="80" placeholder="Например: закончились салфетки, сказал(а) Ирине">`),'Сдать',f=>{const r=(f.r||'').trim();if(!r)return 'Напишите причину в двух словах: так управляющей проще решить.';go(r)});
+  },
+  accept:d=>{const l=listById(d.l),v=acceptList(l);commit(`Принято. ${nm(l.who)} получает +${fmt(v)}`)},
+  acceptAll:()=>{const s=S.shift.filter(l=>l.status==='submitted');s.forEach(acceptList);commit(`Принято чек-листов: ${s.length}`)},
+  ret:d=>{const l=listById(d.l),p=person(l.who);sheet('Вернуть чек-лист',fld('f-note','Что поправить',`<input id="f-note" name="note" maxlength="80" placeholder="Например: на фото не видно дат на заготовках">`)+`<p class="hint">Без снижения премии: ${esc(p.name)} поправит и сдаст снова.</p>`,'Вернуть',f=>{const n=(f.note||'').trim();if(!n)return 'Напишите, что поправить.';l.status='returned';l.note=n;commit('Вернули с пояснением')})},
+  photos:d=>{const l=listById(d.l);sheet('Фото: '+nm(l.who)+', '+l.title.toLowerCase(),l.items.filter(i=>i.photo&&i.photoOk).map(i=>`<div class="fld"><div class="photo-ph" aria-hidden="true"><span>фото-заглушка</span></div><span class="hint">${esc(i.t)}</span></div>`).join('')+`<p class="hint">В прототипе вместо фото — заглушка. Геолокации нет. Фото удалится через ${days(S.rules.photoDays)}, если по нему нет спора.</p>`,'Закрыть',()=>{},true)},
+  onb:d=>{
+    const o=S.onb,i=o.items.find(x=>x.id===d.id),k=person(o.who);if(i.done)return;i.done=true;
+    if(i.by==='mentor'){S.wallet[o.mentor]+=o.pts;addLog({kind:'mentor',who:o.mentor,text:`Наставник для ${k.gen}: «${i.t}»`,delta:o.pts})}
+    else addLog({kind:'mentor',who:o.who,text:`Разговор с управляющей о первой неделе`});
+    if(o.items.every(x=>x.done)){S.wallet[o.who]+=o.bonus;addLog({kind:'mentor',who:o.who,text:'Первая неделя пройдена',delta:o.bonus});commit(`Первая неделя пройдена! ${k.name} получает +${o.bonus}`);return}
+    commit(i.by==='mentor'?`+${pts(o.pts)} за помощь новичку`:'Отмечено');
+  },
+  thank:()=>{
+    const w=UI.role,left=allowLeft(w),others=S.people.filter(p=>p.id!==w),def=Math.min(10,left);
+    if(!left){toast('В этом месяце баллы для «спасибо» закончились. Новые будут 1-го числа');return}
+    sheet('Сказать спасибо',fld('f-to','Кому',`<select id="f-to" name="to">${others.map(p=>`<option value="${p.id}">${esc(p.name)}, ${esc(p.job)}</option>`).join('')}</select>`)+
+      `<fieldset class="fld"><legend>Сколько баллов</legend><div class="seg">${[5,10,15,20].map(v=>`<label class="segb"><input type="radio" name="pts" value="${v}" ${v===def?'checked':''} ${v>left?'disabled':''}><span>${v}</span></label>`).join('')}</div></fieldset>`+
+      fld('f-msg','За что',`<input id="f-msg" name="msg" maxlength="80" placeholder="Например: выручил в час пик">`)+
+      `<div class="row">${THX_CHIPS.map(c=>`<button type="button" class="chip" data-act="msgChip" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`+
+      `<p class="hint">Осталось ${pts(left)} на ${monthName()}. Сообщение увидит вся команда.</p>`,
+      'Отправить',f=>{const to=f.to,v=int(f.pts),msg=(f.msg||'').trim();if(!person(to)||to===w)return 'Выберите коллегу.';if(!msg)return 'Напишите пару слов: за что спасибо.';if(!(v>=1&&v<=allowLeft(w)))return `Можно не больше ${pts(allowLeft(w))}.`;
+        S.thanks.unshift({id:uid(),from:w,to,pts:v,msg,t:Date.now()});S.wallet[to]=(S.wallet[to]||0)+v;
+        addLog({kind:'thanks',who:to,text:`Спасибо от ${person(w).gen}: «${msg}»`,delta:v});commit(`Спасибо отправлено: ${person(to).dat} +${fmt(v)}`)});
+  },
+  msgChip:d=>{const i=$('#f-msg');if(i){i.value=d.v;i.focus()}},
+  buy:d=>{
+    const r=S.rewards.find(x=>x.id===d.id),w=UI.role,m=mgr();if(free(w)<r.pts)return;
+    sheet('Взять награду',`<p><b>${esc(r.title)}</b> — ${pts(r.pts)}</p>`+fld('f-note','Когда удобно (по желанию)',`<input id="f-note" name="note" maxlength="60" placeholder="Например: суббота, утро">`)+`<p class="hint">Баллы отложатся, пока ${esc(m.name)} не подтвердит. Если она откажет, баллы вернутся.</p>`,
+      'Попросить',f=>{if(free(w)<r.pts)return 'Не хватает баллов.';S.requests.push({id:uid(),who:w,rid:r.id,title:r.title,pts:r.pts,note:(f.note||'').trim(),status:'pending',t:Date.now()});commit(`Просьба отправлена. ${m.name} увидит её на экране «Сегодня»`)});
+  },
+  reqOk:d=>{const r=S.requests.find(x=>x.id===d.id);r.status='done';S.wallet[r.who]=Math.max(0,S.wallet[r.who]-r.pts);addLog({kind:'reward',who:r.who,text:'Награда: '+r.title,delta:-r.pts});commit(`Выдано. У ${person(r.who).gen} списано ${pts(r.pts)}`)},
+  reqNo:d=>{const r=S.requests.find(x=>x.id===d.id);sheet('Отказать',fld('f-note','Причина',`<input id="f-note" name="note" maxlength="80" placeholder="Например: в субботу банкет, давай другой день">`)+'<p class="hint">Причину увидит сотрудник. Баллы вернутся.</p>','Отказать',f=>{const t=(f.note||'').trim();if(!t)return 'Напишите причину.';r.status='declined';r.reason=t;addLog({kind:'reward',who:r.who,text:`Отказ: ${r.title}. «${t}». Баллы вернулись`});commit('Ответ отправлен, баллы вернулись')})},
+  newCut:()=>{
+    const R=S.rules;
+    sheet('Снижение премии',fld('f-who','Сотрудник',`<select id="f-who" name="who">${STAFF().map(p=>`<option value="${p.id}">${esc(p.name)}, ${esc(p.job)}</option>`).join('')}</select>`)+
+      fld('f-cl','Пункт положения',`<select id="f-cl" name="cl">${CUTS.map(c=>`<option value="${c.id}">п. ${c.id} · ${esc(c.t)} · −${c.pct}%</option>`).join('')}</select>`)+
+      fld('f-reason','Что случилось (обязательно)',`<textarea id="f-reason" name="reason" rows="2" maxlength="140" placeholder="Например: пришёл в 10:22, смена с 10:00"></textarea>`)+
+      `<div class="fld check"><input id="f-ev" name="ev" type="checkbox" class="switch"><label for="f-ev">Фото или запись приложены (по желанию)</label></div>`+
+      `<div class="banner gold small" id="f-prev"></div>`+
+      `<p class="hint">Сумму в рублях здесь не вписать: денежные штрафы запрещены (ст. 192 ТК РФ). Сотрудник сразу увидит запись и сможет оспорить её в течение ${days(R.disputeDays)}.</p>`,
+      'Записать',f=>{const w=f.who,c=clause(f.cl),r=(f.reason||'').trim(),p=person(w);if(!p||!c)return 'Выберите сотрудника и пункт.';
+        if(!r)return 'Напишите, что случилось. Без причины снижение не записывается (п. 5.1).';
+        if(forecast(w).cut>=R.maxCut)return `Премия ${p.gen} уже снижена на ${R.maxCut}%, больше нельзя (п. 5.2). Можно сделать замечание: это законное взыскание по ст. 192 ТК РФ.`;
+        S.cuts.unshift({id:uid(),who:w,clause:c.id,reason:r,ev:!!f.ev,t:Date.now(),status:'active',seen:false});
+        addLog({kind:'premium',who:w,text:`Снижение премии −${c.pct}%, п. ${c.id}: ${c.t.toLowerCase()}. «${r}»`});
+        commit(`Записано. ${p.name} уже видит это и может оспорить`)});
+    cutPreview();
+  },
+  noFine:()=>sheet('Штрафа в рублях здесь нет',`<p class="small">Денежные штрафы работникам запрещены. В ст. 192 ТК РФ закрытый список взысканий: замечание, выговор, увольнение. За штраф работодатель отвечает по ст. 5.27 КоАП.</p>
+    <p class="small">Законный путь — снизить премию за нарушение, если это заранее записано в положении о премировании (письмо Роструда от 18.12.2014 № 3251-6-1). Поэтому здесь есть только «Записать снижение премии».</p>
+    <p class="small">В 2021 году 57% опрошенных не знали, что штрафы запрещены (Работа.ру, Lenta.ru, 22.11.2021).</p>
+    <p class="hint">Источники: Моё дело; Главкнига, 06.08.2024. Это не юридическая консультация.</p>`,'Понятно',()=>{},true),
+  dispute:d=>{
+    const c=cutById(d.id),cl=clause(c.clause),m=mgr();
+    sheet('Оспорить снижение',`<div class="deal"><p class="small"><b>п. ${cl.id}: ${esc(cl.t.toLowerCase())}, −${cl.pct}%</b><br>«${esc(c.reason)}»</p></div>`+
+      fld('f-note','Почему вы не согласны',`<textarea id="f-note" name="note" rows="3" maxlength="200" placeholder="Например: предупредил заранее, есть сообщение в чате смены"></textarea>`)+
+      `<p class="hint">${esc(m.name)} ответит с комментарием. Пока спор не решён, в прогнозе видны оба варианта.</p>`,
+      'Отправить',f=>{const t=(f.note||'').trim();if(!t)return 'Напишите, почему вы не согласны.';c.status='disputed';c.dispute={text:t,t:Date.now()};addLog({kind:'dispute',who:c.who,text:`${nm(c.who)} ${g(person(c.who),'оспорил','оспорила')} снижение по п. ${cl.id}: «${t}»`});commit(`Спор отправлен. ${m.name} увидит его на экране «Сегодня»`)});
+  },
+  resolve:d=>{
+    const c=cutById(d.id),cl=clause(c.clause),p=person(c.who),keep=d.res==='keep';
+    sheet(keep?'Оставить снижение':'Отменить снижение',`<div class="deal"><p class="small"><b>${esc(p.name)} · п. ${cl.id}, −${cl.pct}%</b><br>«${esc(c.reason)}»</p>${c.dispute?`<ul class="thread"><li class="by-emp"><span class="who">${esc(p.name)}</span>${esc(c.dispute.text)}</li></ul>`:''}</div>`+
+      fld('f-note',`Комментарий для ${esc(p.gen)}`,`<textarea id="f-note" name="note" rows="2" maxlength="160" placeholder="${keep?'Например: в чат написал уже после начала смены':'Например: да, предупредил заранее, отменяю'}"></textarea>`)+
+      `<p class="hint">${keep?'Снижение останется. Сотрудник увидит ваш ответ, а в истории сохранятся оба мнения.':'Премия вернётся к прежнему проценту. Запись останется в истории как отменённая.'}</p>`,
+      keep?'Оставить':'Отменить снижение',f=>{const t=(f.note||'').trim();if(!t)return 'Напишите комментарий: решение без объяснения не принимается.';
+        c.status=keep?'confirmed':'cancelled';c.res={text:t,t:Date.now()};c.seen=false;
+        addLog({kind:'premium',who:c.who,text:keep?`Снижение по п. ${cl.id} оставлено после спора: «${t}»`:`Снижение по п. ${cl.id} отменено: «${t}»`});
+        commit(keep?'Снижение оставлено, ответ отправлен':`Снижение отменено. Премия ${p.gen}: ${forecast(c.who).p}%`)});
+  },
+  export:()=>toast('Это пример: в настоящем продукте здесь будет файл для бухгалтерии с премиями и причинами'),
+  priceChange:()=>{
+    let eff=firstNext(1);if(eff-Date.now()<S.rules.notice*DAY)eff=firstNext(2);
+    sheet('Новая цена награды',fld('f-r','Награда',`<select id="f-r" name="r">${S.rewards.map(r=>`<option value="${r.id}">${esc(r.title)} · сейчас ${fmt(r.pts)}</option>`).join('')}</select>`)+fld('f-p','Новая цена, баллов',numIn('f-p','p',100,1,100000))+
+      `<p class="hint">По п. 6.2 новая цена начнёт действовать ${dstr(eff)}, не раньше чем через ${days(S.rules.notice)}. Команда увидит объявление сразу, а до этой даты награду можно взять по старой цене.</p>`,
+      'Объявить',f=>{const r=S.rewards.find(x=>x.id===f.r),p=int(f.p);if(!r)return 'Выберите награду.';if(!(p>=1&&p<=100000))return 'Цена: от 1 до 100 000 баллов.';if(p===r.pts)return 'Это и есть текущая цена.';
+        r.next={pts:p,from:eff,told:Date.now()};addLog({kind:'rules',text:`Объявлена новая цена: «${r.title}» — ${fmt(p)} с ${dstr(eff)}`});commit('Объявлено. Новая цена начнёт действовать '+dstr(eff))});
+  },
+  reset:()=>sheet('Вернуть пример к началу?','<p class="small">Все изменения в этом браузере пропадут, и пример кафе начнётся заново.</p>','Вернуть',()=>{S=seed();UI={role:MGR,tab:'today'};commit('Пример восстановлен')})
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const fn=ACT[b.dataset.act];if(fn){e.preventDefault();fn(b.dataset,b)}});
+render();
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,816 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>Ладно · Забота</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=Caveat:wght@600&display=swap">
+<style>
+/* Макет: колонка приложения слева, справа (на широком экране) — «почему так сделано». Печать-«Л» и подписи — мотив семейного договора, сливовый акцент — линия «Забота». Экран мамы — отдельный крупный режим без вкладок. */
+:root{
+  --bg:#eef0f6; --surface:#ffffff; --ink:#1b2350; --muted:#5b6286; --line:#d8dbea; --on-ink:#ffffff;
+  --accent:#8a5cd6; --accent-ink:#5e35a8; --accent-soft:#ece3fb; --on-accent:#ffffff;
+  --mom:#3d55c9; --mom-soft:#e3e8ff;
+  --rel:#1f8a6b; --rel-soft:#dcf3ea;
+  --ok:#1f8a5b; --warn:#b26a00; --warn-soft:#fff0d9; --bad:#c0392b; --bad-soft:#fde6e3;
+  --ok-btn:#17724a; --on-ok:#ffffff; --on-bad:#ffffff;
+  --p1:#8a5cd6; --p1-soft:#ece3fb; --p1-ink:#5e35a8;
+  --p2:#1f8a6b; --p2-soft:#dcf3ea; --p2-ink:#16654e;
+  --p3:#c2417a; --p3-soft:#fbe2ee; --p3-ink:#962a5b;
+  --scrim:#0b0e2299;
+  --f-display:"Unbounded","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-hand:"Caveat","Segoe Script","Comic Sans MS",cursive;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10132a; --surface:#1a1e3c; --ink:#eceefb; --muted:#a3a9cc; --line:#2d335c; --on-ink:#10132a;
+  --accent:#b494ff; --accent-ink:#c9b1ff; --accent-soft:#2c2148; --on-accent:#1a1033;
+  --mom:#8fa2ff; --mom-soft:#262f63; --rel:#4fd1a5; --rel-soft:#143a31;
+  --ok:#4cc38a; --warn:#ffb54d; --warn-soft:#3b2a10; --bad:#ff7a6e; --bad-soft:#3d1c1a;
+  --ok-btn:#4cc38a; --on-ok:#0b1d14; --on-bad:#2a0d0a;
+  --p1:#b494ff; --p1-soft:#2c2148; --p1-ink:#c9b1ff; --p2:#4fd1a5; --p2-soft:#143a31; --p2-ink:#6fe0b8; --p3:#ff8fbf; --p3-soft:#3d1a2c; --p3-ink:#ffa8cc;
+  --scrim:#050612aa; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10132a; --surface:#1a1e3c; --ink:#eceefb; --muted:#a3a9cc; --line:#2d335c; --on-ink:#10132a;
+  --accent:#b494ff; --accent-ink:#c9b1ff; --accent-soft:#2c2148; --on-accent:#1a1033;
+  --mom:#8fa2ff; --mom-soft:#262f63; --rel:#4fd1a5; --rel-soft:#143a31;
+  --ok:#4cc38a; --warn:#ffb54d; --warn-soft:#3b2a10; --bad:#ff7a6e; --bad-soft:#3d1c1a;
+  --ok-btn:#4cc38a; --on-ok:#0b1d14; --on-bad:#2a0d0a;
+  --p1:#b494ff; --p1-soft:#2c2148; --p1-ink:#c9b1ff; --p2:#4fd1a5; --p2-soft:#143a31; --p2-ink:#6fe0b8; --p3:#ff8fbf; --p3-soft:#3d1a2c; --p3-ink:#ffa8cc;
+  --scrim:#050612aa; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:8px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;line-height:1.2;text-wrap:balance;margin:0}
+p{margin:0}
+.shell{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+
+/* Шапка */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bg);padding-block:12px 10px;display:grid;gap:10px;border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand b{font-family:var(--f-display);font-size:20px;letter-spacing:.01em;display:block;line-height:1}
+.brand small{color:var(--muted);font-size:12px}
+.seal{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--on-accent);font-family:var(--f-display);font-weight:700;font-size:18px;box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 5px var(--accent-soft);transform:rotate(-8deg)}
+.top-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.saved{font-size:12px;color:var(--muted);transition:color .3s}
+.saved.flash{color:var(--ok)}
+.roles{display:flex;gap:6px;flex-wrap:wrap}
+.role{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:6px}
+.role[aria-selected="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.roles-label{font-size:12px;color:var(--muted);align-self:center;margin-right:2px}
+@media (max-width:520px){.roles-label{display:none}.role{padding:6px 11px}.role .av{display:none}}
+
+/* Участники */
+.av{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-size:12px;font-weight:600;flex:none;line-height:1;vertical-align:middle}
+.av.lg{width:40px;height:40px;font-size:17px;font-family:var(--f-display)}
+.pa1{background:var(--p1-soft);color:var(--p1-ink)} .pa2{background:var(--p2-soft);color:var(--p2-ink)} .pa3{background:var(--p3-soft);color:var(--p3-ink)}
+.pam{background:var(--mom-soft);color:var(--mom)}
+.pf1{background:var(--p1)} .pf2{background:var(--p2)} .pf3{background:var(--p3)}
+
+/* Раскладка */
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;padding-block:18px 0}
+.col{min-width:0;display:flex;flex-direction:column;min-height:calc(100vh - 140px)}
+#screen{display:flex;flex-direction:column;gap:18px;padding-bottom:24px;flex:1}
+aside#why{display:none}
+@media (min-width:980px){
+  .layout{grid-template-columns:minmax(0,500px) minmax(0,1fr)}
+  aside#why{display:block;position:sticky;top:130px;align-self:start}
+  .why-inline{display:none}
+}
+
+/* Нижние вкладки */
+.tabs{position:sticky;bottom:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:var(--r) var(--r) 0 0;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+.tab{border:0;background:none;padding:8px 4px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);position:relative}
+.tab[aria-selected="true"]{color:var(--ink);background:var(--bg)}
+.tab .badge{position:absolute;top:3px;right:calc(50% - 32px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:var(--on-bad);font-size:11px;line-height:18px;font-weight:600}
+
+/* Блоки */
+.screen-title{font-size:26px}
+.sub{color:var(--muted);font-size:14px;margin-top:-10px}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.block h2{font-size:16px}
+.block-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+.hint{font-size:13px;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;white-space:nowrap;color:var(--ink);text-decoration:none;display:inline-block;line-height:1.35}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.btn.accent{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:9px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.chip{border:1px dashed var(--line);background:var(--bg);border-radius:999px;padding:5px 11px;font-size:12.5px;cursor:pointer}
+.chip:hover{border-style:solid}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border:1px solid var(--ink)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filt{justify-content:space-between}
+
+.pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.pill.hot,.pill.remote{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent;font-weight:600}
+.pill.site{background:var(--warn-soft);color:var(--warn);border-color:transparent;font-weight:600}
+.pill.mom,.pill.wait{background:var(--mom-soft);color:var(--mom);border-color:transparent}
+.pill.ok{background:var(--rel-soft);color:var(--rel);border-color:transparent}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent;font-weight:600}
+
+/* Дела */
+.task{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.block h2 + .task,.block .block-head + .task{border-top:0;padding-top:0}
+.task.urgent{background:var(--bad-soft);border-radius:12px;padding:10px 12px;border-top:0}
+.task-main{min-width:0;display:flex;flex-direction:column;gap:4px}
+.task-title{font-weight:600}
+.task-meta{font-size:13px;color:var(--muted)}
+.tags{display:flex;gap:5px;flex-wrap:wrap}
+.task-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.task-val{font-family:var(--f-display);font-size:14px;color:var(--accent-ink);white-space:nowrap}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tile{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:11px 12px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0}
+.tile:hover{border-color:var(--accent)}
+.tile b{font-weight:600;line-height:1.25}
+.tile span{font-size:12.5px;color:var(--muted);line-height:1.35}
+.whybox{background:var(--mom-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.whybox b{font-weight:600}
+.whybox .src{font-size:12px;color:var(--muted)}
+
+/* Мама на связи */
+.hero{background:var(--accent-soft);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.hero-top{display:flex;justify-content:space-between;gap:12px 16px;align-items:flex-start;flex-wrap:wrap}
+.hero .txt{min-width:0;flex:1 1 200px;display:flex;flex-direction:column;gap:4px}
+.hero .big{font-family:var(--f-display);font-size:22px;line-height:1.2;text-wrap:balance}
+.ci{display:flex;flex-direction:column;gap:5px}
+.streak{display:flex;gap:5px}
+.streak i{width:22px;height:22px;border-radius:7px;background:var(--surface);border:1px solid var(--line)}
+.streak i.on{background:var(--ok);border-color:var(--ok)}
+.callnow{display:flex;gap:12px;align-items:center;background:var(--surface);border-radius:14px;padding:12px;flex-wrap:wrap}
+.cn-txt{display:flex;flex-direction:column;min-width:0;flex:1 1 150px}
+.cn-txt b{font-weight:600;font-size:16px}
+.cn-act{display:flex;gap:6px;flex-wrap:wrap}
+.rota-h{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.rota{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.rota li{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:10px;font-size:12px;color:var(--muted);min-width:0}
+.rota li.now{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 2px var(--accent)}
+.rota .av{width:28px;height:28px;font-size:13px}
+.rota .mk{font-size:11px;min-height:16px}
+.rota li.done .mk{color:var(--ok);font-weight:600}
+.banner{border-radius:12px;padding:12px 14px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;font-size:14px}
+.banner span{min-width:0;flex:1 1 220px}
+.banner.warn{background:var(--warn-soft)}
+.banner.bad{background:var(--bad-soft)}
+.banner.gold{background:var(--accent-soft)}
+
+/* Сводки */
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.stat b{font-family:var(--f-display);font-size:clamp(15px,4.4vw,21px);display:block;font-variant-numeric:tabular-nums;line-height:1.25;overflow-wrap:anywhere}
+.stat span{font-size:12px;color:var(--muted);display:block;line-height:1.3;margin-top:2px}
+.bars{display:grid;gap:14px}
+.bar-row{display:grid;gap:5px}
+.bar-top{display:flex;justify-content:space-between;align-items:center;font-size:14px;gap:8px}
+.bar-top > span:first-child{display:flex;align-items:center;gap:6px;min-width:0}
+.bar{height:10px;border-radius:5px;background:var(--bg);overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;border-radius:5px;transition:width .5s ease}
+.split{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--bg);gap:2px}
+.split i{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.list li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.list li:first-child{border-top:0}
+.list li > span:first-child{min-width:0}
+.list .d{color:var(--muted);font-size:12.5px}
+.plus{color:var(--ok);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.minus{color:var(--bad);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.owe{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.block h2 + .owe{border-top:0;padding-top:0}
+.owe .who{display:flex;align-items:center;gap:8px;min-width:0}
+.owe .amt{font-family:var(--f-display);font-size:16px;font-weight:500}
+
+/* Договор */
+.paper{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 18px;display:flex;flex-direction:column;gap:14px;position:relative}
+.paper h2{font-size:18px;padding-right:96px}
+.paper .ver{font-size:12px;color:var(--muted)}
+.clauses{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:10px}
+.clauses li{padding-left:4px}
+.clauses li::marker{font-family:var(--f-display);font-size:13px;color:var(--accent-ink)}
+.clauses b{font-weight:600}
+.signs{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;border-top:1px dashed var(--line);padding-top:14px}
+.sign{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sign .hand{font-family:var(--f-hand);font-size:26px;line-height:1;color:var(--accent-ink);min-height:28px}
+.sign .hand.mom{color:var(--mom)}
+.sign .who{font-size:12px;color:var(--muted);border-top:1px solid var(--muted);padding-top:3px}
+.stamp{position:absolute;right:14px;top:14px;transform:rotate(9deg);border:2px solid var(--ok);color:var(--ok);border-radius:8px;padding:2px 8px;font-family:var(--f-display);font-size:11px;letter-spacing:.06em;max-width:90px;text-align:center;line-height:1.3}
+.stamp.no{border-color:var(--warn);color:var(--warn)}
+.setting{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.setting:first-of-type{border-top:0}
+.setting label,.setting .lbl{font-weight:500}
+.setting .hint{grid-column:1/-1}
+.setting input[type="number"]{width:92px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);text-align:right}
+.setting select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);max-width:140px}
+
+/* Экран мамы */
+.mom{display:flex;flex-direction:column;gap:16px;font-size:21px;line-height:1.35}
+.mom-date{font-size:18px;color:var(--muted)}
+.mom h1{font-size:28px}
+.mom-msg{background:var(--mom-soft);border-radius:16px;padding:16px 18px;font-size:21px;font-weight:500}
+.mbtn{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;text-align:left;min-height:110px;padding:16px 18px;border-radius:18px;border:3px solid var(--ink);background:var(--surface);color:var(--ink);cursor:pointer;width:100%;min-width:0}
+.mbtn b{font-size:clamp(21px,6vw,26px);font-weight:600;line-height:1.15;overflow-wrap:normal;hyphens:manual}
+.mgrid .mbtn{padding:14px}
+.mbtn span{font-size:17px;color:var(--muted);line-height:1.3}
+.mbtn.ok{background:var(--ok-btn);border-color:var(--ok-btn);color:var(--on-ok)}
+.mbtn.bad{background:var(--bad);border-color:var(--bad);color:var(--on-bad)}
+.mbtn.ok span,.mbtn.bad span{color:inherit}
+.mbtn:active{transform:scale(.98)}
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.mom-box{background:var(--surface);border:2px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.mom-box h2{font-size:22px}
+.mom-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.mom-list li{padding:14px 0;border-top:2px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.mom-list li:first-child{border-top:0;padding-top:0}
+.mom-list b{font-weight:600}
+.btn.huge{font-size:21px;padding:14px 22px;border-radius:14px;white-space:normal}
+.mom-note{font-size:17px;color:var(--muted)}
+
+/* Почему так */
+.why{display:flex;flex-direction:column;gap:12px}
+.why-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.why-card .p{font-size:13px;color:var(--bad);font-weight:600}
+.why-card .src{font-size:12px;color:var(--muted)}
+.why-card .s{font-size:14.5px}
+.why-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.why-head h2{font-size:15px}
+details.why-inline{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;font-size:15px}
+details.why-inline summary{cursor:pointer;font-weight:600}
+details.why-inline[open] summary{margin-bottom:10px}
+details.why-inline .why-card{border:0;padding:10px 0;border-top:1px solid var(--line);border-radius:0}
+.sol{display:grid;gap:10px}
+.future{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.future li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.future li::before{content:"";width:10px;height:10px;margin-top:7px;border-radius:3px;background:var(--accent)}
+
+/* Окно формы */
+.sheet{position:fixed;inset:0;z-index:20;display:grid;align-items:end;justify-items:center}
+.sheet-back{position:absolute;inset:0;background:var(--scrim)}
+.sheet-card{position:relative;width:min(520px,100%);max-height:88vh;overflow:auto;background:var(--surface);border-radius:20px 20px 0 0;padding:20px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px;animation:up .22s ease}
+@media (min-width:640px){.sheet{align-items:center}.sheet-card{border-radius:20px}}
+@keyframes up{from{transform:translateY(24px);opacity:.6}}
+.sheet-card h2{font-size:18px}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld label{font-size:13px;font-weight:600}
+.fld input,.fld select,.fld textarea{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;width:100%}
+.fld.tick{flex-direction:row;align-items:center;gap:10px}
+.fld.tick input{width:auto}
+.fld2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sheet-actions{display:flex;gap:8px;justify-content:flex-end}
+.err{color:var(--bad);font-size:13px;min-height:1px}
+.err:empty{display:none}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:10px 16px;border-radius:12px;font-size:14px;z-index:30;max-width:calc(100% - 32px);box-shadow:0 8px 24px #0004;transition:opacity .25s}
+.toast[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="shell">
+  <header class="top">
+    <div class="top-in">
+      <div class="brand"><span class="seal" aria-hidden="true">Л</span><div><b>Ладно</b><small>забота о родителях · прототип</small></div></div>
+      <div class="top-acts"><a class="btn sm ghost" href="index.html">Все прототипы</a><span id="saved" class="saved">Сохранено</span><button class="btn sm" data-act="solutions">Решения</button></div>
+    </div>
+    <div id="roles" class="roles" role="tablist" aria-label="Чьими глазами смотреть"></div>
+  </header>
+  <div class="layout">
+    <div class="col">
+      <main id="screen" aria-live="polite"></main>
+      <nav id="tabs" class="tabs" role="tablist" aria-label="Разделы"></nav>
+    </div>
+    <aside id="why" aria-label="Почему так сделано"></aside>
+  </div>
+</div>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-back" data-act="closeSheet"></div>
+  <form id="sheet-form" class="sheet-card" novalidate>
+    <h2 id="sheet-title"></h2>
+    <div id="sheet-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    <p id="sheet-err" class="err" role="alert"></p>
+    <div class="sheet-actions"><button type="button" class="btn ghost" data-act="closeSheet">Отмена</button><button id="sheet-ok" class="btn primary" type="submit">Готово</button></div>
+  </form>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+(function(){
+'use strict';
+const KEY='ladno-care-v1', UIKEY='ladno-care-ui-v1', DAY=864e5, H=36e5, MIN=6e4, CALLMIN=20;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Math.round(n).toLocaleString('ru-RU');
+const rub=n=>fmt(n)+' ₽';
+function pl(n,a,b,c){n=Math.abs(Math.round(n));const m=n%100,k=n%10;if(m>10&&m<20)return c;if(k===1)return a;if(k>=2&&k<=4)return b;return c}
+const sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()};
+const dayDiff=t=>Math.round((sod(Date.now())-sod(t))/DAY);
+const hm=t=>new Date(t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+const dstr=t=>new Date(t).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+const wday=t=>new Date(t).toLocaleDateString('ru-RU',{weekday:'short'});
+function when(t){const d=dayDiff(t);if(d===0)return 'сегодня в '+hm(t);if(d===1)return 'вчера в '+hm(t);if(d>1&&d<7)return d+' '+pl(d,'день','дня','дней')+' назад';return dstr(t)}
+function dur(m){m=Math.round(m);if(m<60)return m+' мин';const h=Math.floor(m/60),r=m%60;return h+' ч'+(r?' '+r+' мин':'')}
+const uid=()=>Math.random().toString(36).slice(2,9);
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+
+/* ---------- Справочники ---------- */
+const KIND={visit:'визит',meds:'лекарства',doctor:'врач',bills:'счета',repair:'ремонт',call:'звонок',food:'продукты',taxi:'такси',clean:'уборка',helper:'помощница',broken:'поломка',bad:'самочувствие',other:'другое'};
+const MOMK={
+  food:{title:'Нужны продукты',sub:'привезут или закажут',min:30,take:['привезёт или закажет продукты','привезёт или закажет продукты'],done:['заказал продукты','заказала продукты'],ask:'Продукты привезли?',got:'Да, привезли',what:'Продукты по просьбе мамы'},
+  meds:{title:'Нужны лекарства',sub:'закажут по вашему списку',min:20,take:['закажет лекарства','закажет лекарства'],done:['заказал лекарства','заказала лекарства'],ask:'Лекарства привезли?',got:'Да, привезли',what:'Лекарства по просьбе мамы'},
+  call:{title:'Позвонить мне',sub:'вам перезвонят',min:CALLMIN,take:['позвонит вам','позвонит вам'],done:['позвонил вам','позвонила вам']},
+  broken:{title:'Что-то сломалось',sub:'позвонят и найдут мастера',min:30,take:['позвонит и разберётся','позвонит и разберётся'],done:['разобрался с поломкой','разобралась с поломкой'],ask:'Всё починили?',got:'Да, всё работает',what:'Ремонт по просьбе мамы'},
+  bad:{title:'Плохо себя чувствую',sub:'дети сразу позвонят',min:30,take:['звонит вам прямо сейчас','звонит вам прямо сейчас'],done:['связался с вами','связалась с вами']}
+};
+const REQHINT={meds:'Можно заказать с доставкой из любого города.',food:'Можно заказать доставку из любого города.',call:'Позвонить может любой.',broken:'Сначала позвоните маме и уточните, что случилось.',bad:'По договору: дежурный звонит сразу. Не дозвонился — едет тот, кто рядом.'};
+const HOWPH={meds:'Например: заказали в аптеке с доставкой, привезут к 18:00',food:'Например: заказали доставку из магазина у дома',call:'Например: поговорили, всё хорошо',broken:'Например: позвонили, мастер придёт завтра',bad:'Например: позвонили, мама отдохнёт, вечером заедем',bills:'Например: оплатили в своём банке',doctor:'Например: записали на четверг, 10:00',visit:'Например: купили продукты, посидели вместе'};
+const CATALOG=[
+  {kind:'food',title:'Продукты',sub:'доставка из магазина рядом с мамой',def:'Продукты на неделю',min:20},
+  {kind:'meds',title:'Аптека',sub:'лекарства по списку мамы',def:'Лекарства по списку',min:20},
+  {kind:'taxi',title:'Такси до поликлиники',sub:'туда и обратно',def:'Такси до поликлиники и обратно',min:15},
+  {kind:'repair',title:'Мастер',sub:'сантехник, электрик, мелкий ремонт',def:'Мастер: ',min:30},
+  {kind:'clean',title:'Уборка',sub:'разовая или раз в две недели',def:'Уборка квартиры',min:15},
+  {kind:'helper',title:'Сиделка или помощница',sub:'на несколько часов',def:'Помощница на полдня',min:30}];
+
+/* ---------- Пример семьи ---------- */
+function seed(){
+  const n=Date.now(),d0=sod(n),at=(d,h,m)=>d0-d*DAY+h*H+(m||0)*MIN;
+  const ci=at(0,9,40),checkins=[at(1,9,15),at(2,10,5),at(4,9,50),at(5,8,55),at(6,9,30)];
+  if(ci<n-5*MIN)checkins.unshift(ci);
+  const sat=new Date(n+12*DAY);while(sat.getDay()!==6)sat.setDate(sat.getDate()+1);
+  return {
+    v:1,
+    mom:{name:'Галина Петровна',age:78,city:'Тверь'},
+    sibs:[{id:'natasha',name:'Наташа',ins:'Наташей',dat:'Наташе',gen:'Наташи',f:true,c:1,city:'Тверь',from:'рядом с мамой',far:false,note:'20 минут до мамы'},
+          {id:'igor',name:'Игорь',ins:'Игорем',dat:'Игорю',gen:'Игоря',c:2,city:'Москва',from:'из Москвы',far:true,note:'в Москве'},
+          {id:'pasha',name:'Паша',ins:'Пашей',dat:'Паше',gen:'Паши',c:3,city:'Казань',from:'из Казани',far:true,note:'в Казани'}],
+    checkins,
+    calls:{order:['natasha','igor','pasha'],anchor:d0,anchorIdx:1,swap:null,log:[
+      {by:'natasha',t:at(1,19,10)},{by:'pasha',t:at(2,18,40)},{by:'igor',t:at(3,20,5)},{by:'natasha',t:at(4,19,0)},{by:'pasha',t:at(5,19,30)},{by:'igor',t:at(6,19,45)}]},
+    tasks:[
+      {id:'r1',from:'mom',kind:'broken',title:'Что-то сломалось',where:'remote',min:30,status:'open',t:n-2*H},
+      {id:'t1',kind:'bills',title:'Оплатить интернет и телефон мамы',where:'remote',min:10,status:'open',due:'на этой неделе',repeat:'раз в месяц',t:at(1,9,0)},
+      {id:'t2',kind:'doctor',title:'Записать маму на плановый приём к терапевту',where:'remote',min:15,status:'open',due:'на следующую неделю',t:at(2,9,0)},
+      {id:'t3',kind:'repair',title:'Найти мастера: подтекает кран на кухне',where:'remote',min:20,status:'open',t:at(1,20,0)},
+      {id:'t4',kind:'meds',title:'Разложить таблетки на неделю',where:'site',min:20,status:'open',due:'в воскресенье',repeat:'каждую неделю',t:at(3,9,0)},
+      {id:'t5',kind:'visit',title:'Зайти к маме: продукты, поговорить',where:'site',min:90,status:'taken',by:'natasha',due:'в среду',repeat:'2 раза в неделю',mom:'придёт к вам',t:at(1,18,0)},
+      {id:'t6',kind:'doctor',title:'Отвезти маму в поликлинику',where:'site',min:150,status:'taken',by:'natasha',due:'в четверг, 10:00',mom:'отвезёт вас в поликлинику',t:at(2,12,0)},
+      {id:'t7',kind:'visit',title:'Приехать к маме на выходные',where:'site',min:480,status:'taken',by:'pasha',due:'в субботу, '+dstr(sat),mom:'приедет к вам',t:at(4,12,0)},
+      {id:'d1',kind:'visit',title:'Зайти к маме: продукты, поговорить',where:'site',min:90,status:'done',by:'natasha',doneAt:at(1,18,0),how:'Купила продукты, посидели вместе',cost:3200},
+      {id:'d2',from:'mom',kind:'meds',title:'Нужны лекарства',where:'remote',min:20,status:'done',by:'pasha',t:at(3,9,20),doneAt:at(3,12,0),how:'Заказал в аптеке с доставкой на дом',cost:1900,confirmed:true},
+      {id:'d3',kind:'visit',title:'Зайти к маме: продукты, поговорить',where:'site',min:90,status:'done',by:'natasha',doneAt:at(4,17,30),cost:2900},
+      {id:'d4',kind:'bills',title:'Оплатить коммуналку за месяц',where:'remote',min:15,status:'done',by:'igor',doneAt:at(5,21,0),how:'Оплатил в своём банке',cost:6840},
+      {id:'d5',kind:'doctor',title:'Отвезти маму в поликлинику',where:'site',min:150,status:'done',by:'natasha',doneAt:at(6,9,0),how:'Съездили на такси',cost:760},
+      {id:'d6',kind:'clean',title:'Заказать уборку квартиры',where:'remote',min:15,status:'done',by:'pasha',doneAt:at(9,12,0),cost:2500,order:true}],
+    expenses:[
+      {id:'e1',by:'natasha',cat:'food',what:'Продукты',amount:3200,t:at(1,18,0)},
+      {id:'e2',by:'pasha',cat:'meds',what:'Лекарства по списку, с доставкой',amount:1900,t:at(3,12,0)},
+      {id:'e3',by:'natasha',cat:'food',what:'Продукты',amount:2900,t:at(4,17,30)},
+      {id:'e4',by:'igor',cat:'bills',what:'Коммуналка за месяц',amount:6840,t:at(5,21,0)},
+      {id:'e5',by:'natasha',cat:'taxi',what:'Такси до поликлиники и обратно',amount:760,t:at(6,9,0)},
+      {id:'e6',by:'natasha',cat:'meds',what:'Лекарства в аптеке у дома',amount:2450,t:at(6,12,0)},
+      {id:'e7',by:'pasha',cat:'clean',what:'Уборка квартиры',amount:2500,t:at(9,12,0)},
+      {id:'e8',by:'natasha',cat:'repair',what:'Электрик: розетка в комнате',amount:1500,t:at(12,15,0)}],
+    transfers:[{id:'x1',from:'pasha',to:'natasha',amount:1000,t:at(7,20,0)}],
+    contract:{ver:4,visits:2,farVisits:1,checkBy:12,askOver:3000,medical:'natasha',shares:{natasha:30,igor:40,pasha:30},
+      signed:{natasha:true,igor:false,pasha:true},change:'Паша: «Траты без согласования» — до 3 000 ₽ (было 2 000 ₽)',consent:{t:at(40,12,0),by:'natasha'}},
+    log:[
+      {t:n-2*H,kind:'req',text:'Мама нажала «Что-то сломалось»'},
+      {t:at(1,18,0),kind:'task',text:'Наташа: зашла к маме, купила продукты',amount:3200},
+      {t:at(1,10,0),kind:'contract',text:'Паша изменил договор: траты без согласования — до 3 000 ₽ (версия 4)'},
+      {t:at(3,12,0),kind:'task',text:'Паша заказал лекарства по просьбе мамы',amount:1900},
+      {t:at(3,14,0),kind:'task',text:'Мама подтвердила: лекарства привезли'},
+      {t:at(5,21,0),kind:'task',text:'Игорь оплатил коммуналку за месяц',amount:6840},
+      {t:at(6,9,0),kind:'task',text:'Наташа отвезла маму в поликлинику',amount:760},
+      {t:at(7,20,0),kind:'money',text:'Паша перевёл Наташе',amount:1000},
+      {t:at(21,20,0),kind:'contract',text:'Все подписали договор, версия 3'},
+      {t:at(40,12,0),kind:'consent',text:'Мама дала согласие на договор лично. Записала Наташа'}]
+  };
+}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===1&&s.sibs&&s.tasks)return s}catch(e){}return null}
+let S=load()||seed();
+let UI={role:'natasha',tab:'today',filter:'all',momMsg:null};
+try{Object.assign(UI,JSON.parse(localStorage.getItem(UIKEY))||{})}catch(e){}
+function persist(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem(UIKEY,JSON.stringify(UI))}catch(e){}
+  const el=$('#saved');el.textContent='Сохранено';el.classList.add('flash');clearTimeout(persist.t);persist.t=setTimeout(()=>el.classList.remove('flash'),900);
+}
+let toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2800)}
+function commit(msg){persist();render();if(msg)toast(msg)}
+
+/* ---------- Помощники ---------- */
+const sib=id=>S.sibs.find(s=>s.id===id);
+const sname=id=>sib(id)?sib(id).name:'';
+const g=(id,a)=>sib(id)&&sib(id).f?a[1]:a[0];
+const isMom=()=>UI.role==='mom';
+const task=id=>S.tasks.find(t=>t.id===id);
+const nearSib=()=>S.sibs.find(s=>!s.far)||S.sibs[0];
+const farNames=()=>S.sibs.filter(s=>s.far).map(s=>s.name).join(' и ');
+const eqSh=(sh=S.contract.shares)=>S.sibs.every(s=>Math.abs(sh[s.id]-100/3)<0.01);
+const pc=id=>eqSh()?'⅓':Math.round(S.contract.shares[id])+'%';
+function sharesText(sh=S.contract.shares){return eqSh(sh)?'поровну, по трети':S.sibs.map(s=>`${s.name} ${Math.round(sh[s.id])}%`).join(', ')}
+function addLog(o){S.log.unshift(Object.assign({t:Date.now()},o))}
+function empty(m){return `<p class="empty">${m}</p>`}
+const av=(id,cls)=>{const s=sib(id);return s?`<span class="av pa${s.c} ${cls||''}" aria-hidden="true">${esc(s.name[0])}</span>`:''};
+function callerOf(t){const c=S.calls,d=sod(t);if(c.swap&&c.swap.day===d)return c.swap.who;const i=c.anchorIdx+Math.round((d-c.anchor)/DAY),L=c.order.length;return c.order[((i%L)+L)%L]}
+const callsOn=t=>{const d=sod(t);return S.calls.log.filter(c=>sod(c.t)===d)};
+const checkinOn=t=>{const d=sod(t);return S.checkins.find(c=>sod(c)===d)};
+const urgent=()=>S.tasks.find(t=>t.from==='mom'&&t.kind==='bad'&&t.status!=='done');
+function momStatus(){
+  const n=Date.now(),ci=checkinOn(n),by=S.contract.checkBy;
+  if(ci)return {cls:'ok',pill:'на связи',big:`Мама отметилась в ${hm(ci)}`,text:'Нажала «Я в порядке» на своём экране.'};
+  if(n<sod(n)+by*H)return {cls:'wait',pill:'ждём отметку',big:'Мама ещё не отметилась',text:`Обычно она нажимает «Я в порядке» до ${by}:00.`};
+  return {cls:'warn',pill:'нет отметки',big:`Нет отметки до ${by}:00`,text:`По договору дежурный звонит сразу. Сегодня это ${sname(callerOf(n))}.`};
+}
+function money(){
+  const tot=S.expenses.reduce((s,e)=>s+e.amount,0),sh=S.contract.shares,net={},paid={};
+  S.sibs.forEach(s=>{paid[s.id]=S.expenses.filter(e=>e.by===s.id).reduce((a,e)=>a+e.amount,0);net[s.id]=paid[s.id]-tot*sh[s.id]/100});
+  S.transfers.forEach(x=>{if(x.from in net)net[x.from]+=x.amount;if(x.to in net)net[x.to]-=x.amount});
+  const deb=S.sibs.map(s=>({id:s.id,v:-net[s.id]})).filter(x=>x.v>=1).sort((a,b)=>b.v-a.v);
+  const cre=S.sibs.map(s=>({id:s.id,v:net[s.id]})).filter(x=>x.v>=1).sort((a,b)=>b.v-a.v);
+  const debts=[];let i=0,j=0;
+  while(i<deb.length&&j<cre.length){const a=Math.min(deb[i].v,cre[j].v);if(Math.round(a)>=1)debts.push({from:deb[i].id,to:cre[j].id,amount:Math.round(a)});deb[i].v-=a;cre[j].v-=a;if(deb[i].v<1)i++;if(cre[j].v<1)j++}
+  return {tot,paid,net,debts};
+}
+function taskRow(t,v){
+  const isReqAsk=t.from==='mom'&&MOMK[t.kind]&&MOMK[t.kind].ask;
+  const tags=[
+    t.from==='mom'?'<span class="pill mom">просьба мамы</span>':'',
+    t.where==='site'?'<span class="pill site">на месте</span>':'<span class="pill remote">удалённо</span>',
+    t.order?'<span class="pill">заказ</span>':'',
+    t.due&&t.status!=='done'?`<span class="pill">${esc(t.due)}</span>`:'',
+    t.repeat?`<span class="pill">${esc(t.repeat)}</span>`:'',
+    t.status==='done'&&isReqAsk?(t.confirmed?'<span class="pill ok">мама подтвердила</span>':'<span class="pill wait">ждём ответа мамы</span>'):''].join('');
+  const who=t.by?(t.status==='done'?g(t.by,['сделал','сделала'])+' ':'берёт ')+esc(sname(t.by)):'';
+  const meta=[KIND[t.kind]||'дело',t.status==='done'?when(t.doneAt):'',who,t.status==='done'&&t.how?esc(t.how):''].filter(Boolean).join(' · ');
+  let act='';
+  if(t.status==='open')act=`<button class="btn sm" data-act="take" data-id="${t.id}">Беру</button>`;
+  else if(t.status==='taken'&&t.by===v)act=`<button class="btn sm primary" data-act="done" data-id="${t.id}">Готово</button><button class="btn sm ghost" data-act="drop" data-id="${t.id}">Отдать</button>`;
+  const val=t.status==='done'&&t.cost?rub(t.cost):dur(t.min);
+  return `<div class="task"><div class="task-main"><div class="task-title">${esc(t.title)}</div><div class="task-meta">${meta}</div><div class="tags">${tags}</div></div><div class="task-side"><div class="task-val num">${val}</div>${act}</div></div>`;
+}
+function reqRow(t,v){
+  const k=MOMK[t.kind];let side;
+  if(t.status==='open')side=`<button class="btn sm accent" data-act="take" data-id="${t.id}">Беру</button>`;
+  else if(t.by===v)side=`<button class="btn sm primary" data-act="done" data-id="${t.id}">Готово</button>`;
+  else side=`<span class="pill">берёт ${esc(sname(t.by))}</span>`;
+  const st=t.status==='taken'?(t.by===v?' Вы взялись: мама это видит.':` ${esc(sname(t.by))} ${esc(g(t.by,k.take))}.`):'';
+  return `<div class="task ${t.kind==='bad'?'urgent':''}"><div class="task-main"><div class="task-title">${esc(k.title)}</div><div class="task-meta">Мама нажала ${when(t.t)}. ${REQHINT[t.kind]||''}${st}</div></div><div class="task-side">${side}</div></div>`;
+}
+function signBanner(v){
+  const c=S.contract;if(c.signed[v])return '';
+  return `<div class="banner gold"><span>Договор изменился (версия ${c.ver})${c.change?': '+esc(c.change):''}. Прочитайте и подпишите.</span><button class="btn sm" data-act="tab" data-tab="contract">Открыть</button></div>`;
+}
+function urgentBanner(v){
+  const u=urgent();if(!u)return '';const c=callerOf(Date.now()),near=nearSib();
+  return `<div class="banner bad" role="alert"><span><b>Мама нажала «Плохо себя чувствую» ${when(u.t)}.</b> ${c===v?'Вы сегодня дежурный: позвоните ей сейчас.':`Дежурный сегодня ${esc(sname(c))}, ${g(c,['он','она'])} звонит сразу.`} Не дозвонились — сообщите ${esc(near.dat)}, она едет к маме.${u.status==='taken'?` Взялся: ${esc(sname(u.by))}.`:''}</span>${u.status==='open'?`<button class="btn sm primary" data-act="take" data-id="${u.id}">Беру, звоню</button>`:''}</div>`;
+}
+
+/* ---------- Экраны детей ---------- */
+const SV={};
+SV.today=v=>{
+  const me=sib(v),n=Date.now(),st=momStatus(),caller=callerOf(n),called=callsOn(n),iCalled=called.some(c=>c.by===v);
+  const reqs=S.tasks.filter(t=>t.from==='mom'&&t.status!=='done').sort((a,b)=>(a.kind==='bad'?-1:0)-(b.kind==='bad'?-1:0)||b.t-a.t);
+  const mine=S.tasks.filter(t=>t.status==='taken'&&t.by===v&&t.from!=='mom');
+  const fit=S.tasks.filter(t=>t.status==='open'&&t.from!=='mom'&&(me.far?t.where==='remote':t.where==='site')).slice(0,4);
+  const dots=Array.from({length:7},(_,i)=>{const d=n-(6-i)*DAY,c=checkinOn(d);return `<i class="${c?'on':''}" title="${esc(wday(d))}: ${c?'отметилась в '+hm(c):'нет отметки'}"></i>`}).join('');
+  const cnt=Array.from({length:7},(_,i)=>checkinOn(n-(6-i)*DAY)?1:0).reduce((a,b)=>a+b,0);
+  const rota=Array.from({length:7},(_,i)=>{const off=i-3,d=n+off*DAY,who=callerOf(d),had=callsOn(d).length;const mk=off<=0?(had?'✓':off<0?'—':''):'';return `<li class="${off===0?'now':''} ${had?'done':''}"><span>${esc(wday(d))}</span>${av(who)}<span class="mk">${mk}</span></li>`}).join('');
+  const calledLine=called.length?called.map(c=>`${esc(sname(c.by))} ${g(c.by,['звонил','звонила'])} в ${hm(c.t)}`).join(', '):'Вечером, по очереди из договора';
+  const callBtn=caller===v&&!iCalled?`<button class="btn accent" data-act="called">${g(v,['Я позвонил маме','Я позвонила маме'])}</button>`:`<button class="btn sm" data-act="called">Отметить звонок</button>`;
+  return `${signBanner(v)}${urgentBanner(v)}
+  <h1 class="screen-title">Сегодня</h1><p class="sub">${esc(cap(new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})))} · ${esc(S.mom.name)}, ${S.mom.age}, ${esc(S.mom.city)}</p>
+  <section class="hero" aria-label="Мама на связи">
+    <div class="hero-top"><div class="txt"><p class="eyebrow">Мама на связи</p><p class="big">${esc(st.big)}</p><p class="small muted">${esc(st.text)}</p></div>
+      <div class="ci"><span class="small muted">Отметки за неделю: ${cnt} из 7</span><div class="streak" role="img" aria-label="Отметки мамы за 7 дней: ${cnt}">${dots}</div></div></div>
+    <div class="callnow">${av(caller,'lg')}<div class="cn-txt"><b>${caller===v?'Сегодня маме звоните вы':'Кто звонит маме сегодня: '+esc(sname(caller))}</b><span class="small muted">${calledLine}</span></div><div class="cn-act">${callBtn}<button class="btn sm ghost" data-act="swap">Поменяться</button></div></div>
+    <div class="rota-h"><span>Очередь звонков</span><span>${S.calls.order.map(sname).join(' → ')}</span></div>
+    <ol class="rota" aria-label="Очередь звонков на неделю">${rota}</ol>
+  </section>
+  <section class="block"><div class="block-head"><h2>Просьбы мамы</h2><span class="hint">с её экрана</span></div>
+    ${reqs.map(t=>reqRow(t,v)).join('')||empty('Новых просьб нет. Мама нажимает кнопку, и просьба появляется здесь у всех троих.')}</section>
+  <section class="block"><h2>Мои дела</h2>${mine.map(t=>taskRow(t,v)).join('')||empty(me.far?'Пока ничего. Возьмите удалённое дело ниже.':'Пока ничего.')}</section>
+  <section class="block"><div class="block-head"><h2>${me.far?'Можно сделать '+esc(me.from):'Нужно на месте'}</h2><button class="btn sm ghost" data-act="tab" data-tab="tasks">Все дела</button></div>
+    ${fit.map(t=>taskRow(t,v)).join('')||empty('Свободных дел нет.')}
+    <p class="hint">${me.far?'Эти дела можно сделать из любого города: заказать, оплатить, записать, позвонить. По договору их сначала берёте вы с '+esc(S.sibs.filter(s=>s.far&&s.id!==v).map(s=>s.ins).join(', '))+'.':'Удалённые дела по договору сначала берут '+esc(farNames())+'. Так на вас остаются только дела, для которых нужно приехать.'}</p></section>
+  <section class="block"><h2>Нагрузка за неделю</h2>${fairness()}</section>`;
+};
+function fairness(){
+  const wk=Date.now()-7*DAY;
+  const rows=S.sibs.map(s=>{const done=S.tasks.filter(t=>t.status==='done'&&t.by===s.id&&t.doneAt>wk&&t.kind!=='call');const calls=S.calls.log.filter(c=>c.by===s.id&&c.t>wk).length;
+    return {s,done:done.length,site:done.filter(t=>t.where==='site').length,calls,min:done.reduce((a,t)=>a+t.min,0)+calls*CALLMIN,money:S.expenses.filter(e=>e.by===s.id&&e.t>wk).reduce((a,e)=>a+e.amount,0)}});
+  const tot=Math.max(1,rows.reduce((a,r)=>a+r.min,0)),top=rows.slice().sort((a,b)=>b.min-a.min)[0],share=top.min/tot;
+  const remote=S.tasks.filter(t=>t.status==='open'&&t.where==='remote').length,others=rows.filter(r=>r!==top).map(r=>r.s.name).join(' и ');
+  const tip=share>0.5?`${top.s.name} ${g(top.s.id,['сделал','сделала'])} ${Math.round(share*100)}% всей работы по времени.${remote?` Удалённых дел в списке: ${remote}. Их могут взять ${others}.`:''}`:'Нагрузка делится примерно поровну.';
+  const near=nearSib(),sh=S.contract.shares,less=S.sibs.some(s=>sh[s.id]>sh[near.id]+0.01);
+  return `<div class="bars">${rows.map(r=>`<div class="bar-row"><div class="bar-top"><span>${av(r.s.id)}<b>${esc(r.s.name)}</b><span class="muted small">${esc(r.s.note)}</span></span><span class="num">${dur(r.min)}</span></div><div class="bar"><i class="pf${r.s.c}" style="width:${(r.min/tot*100).toFixed(1)}%"></i></div><span class="hint">${r.done} ${pl(r.done,'дело','дела','дел')}${r.site?` (на месте: ${r.site})`:''} · ${r.calls} ${pl(r.calls,'звонок','звонка','звонков')} · потрачено ${rub(r.money)}</span></div>`).join('')}</div>
+  <p class="small">${esc(tip)}</p><p class="hint">Баллов здесь нет: вклад считается в часах, делах и рублях. Звонок — это ${CALLMIN} минут.${less?` ${esc(near.name)} помогает больше временем, поэтому её доля в деньгах по договору меньше.`:''}</p>`;
+}
+SV.tasks=v=>{
+  const f=UI.filter||'all',ok=t=>f==='all'||t.where===f;
+  const open=S.tasks.filter(t=>t.status==='open'&&ok(t)),taken=S.tasks.filter(t=>t.status==='taken'&&ok(t));
+  const done=S.tasks.filter(t=>t.status==='done'&&ok(t)&&t.doneAt>Date.now()-14*DAY).sort((a,b)=>b.doneAt-a.doneAt);
+  const cnt=w=>S.tasks.filter(t=>t.status!=='done'&&(w==='all'||t.where===w)).length;
+  const chip=(id,l)=>`<button class="chip" data-act="filter" data-f="${id}" aria-pressed="${f===id}">${l} · ${cnt(id)}</button>`;
+  return `${signBanner(v)}<h1 class="screen-title">Дела</h1>
+  <section class="block"><div class="block-head"><h2>Заказать для мамы</h2><span class="pill remote">можно из любого города</span></div>
+    <div class="tiles">${CATALOG.map(c=>`<button class="tile" data-act="order" data-kind="${c.kind}"><b>${esc(c.title)}</b><span>${esc(c.sub)}</span></button>`).join('')}</div>
+    <div class="whybox"><b>Почему здесь нет кнопки «Оплатить»</b><p>У Яндекс Еды, Самоката, Лавки, Купера и такси нет открытого доступа, через который чужое приложение могло бы оформить заказ. Агрегаторы доставок закрывались: X5 закрыла «Около», golama закрылась из-за нехватки денег. Поэтому Ладно не собирает заказы, а координирует: просьба создаётся здесь, кто-то её берёт и заказывает там, где привык. Здесь остаются статус, кто платил и сколько.</p><span class="src">вывод исследования, октябрь 2026; vc.ru</span></div>
+  </section>
+  <div class="row filt"><div class="row">${chip('all','Все')}${chip('site','На месте')}${chip('remote','Удалённо')}</div><button class="btn sm primary" data-act="newTask">Новое дело</button></div>
+  <section class="block"><h2>Нужно сделать</h2>${open.map(t=>taskRow(t,v)).join('')||empty('Свободных дел нет.')}</section>
+  <section class="block"><h2>В работе</h2>${taken.map(t=>taskRow(t,v)).join('')||empty('Никто ничего не делает прямо сейчас.')}</section>
+  <section class="block"><h2>Сделано за две недели</h2>${done.map(t=>taskRow(t,v)).join('')||empty('Пока пусто.')}<p class="hint">«На месте» — нужно приехать к маме. «Удалённо» — можно сделать из любого города.</p></section>`;
+};
+SV.money=v=>{
+  const m=money(),sh=S.contract.shares,net=Math.round(m.net[v]),month=S.expenses.filter(e=>e.t>Date.now()-30*DAY).reduce((a,e)=>a+e.amount,0);
+  const debts=m.debts.map(d=>`<div class="owe"><span class="who">${av(d.from)}<span>${esc(sname(d.from))} → ${esc(sib(d.to).dat)}</span></span><span class="row"><b class="amt num">${rub(d.amount)}</b>${d.from===v?`<button class="btn sm accent" data-act="paid" data-to="${d.to}" data-amount="${d.amount}">${g(v,['Перевёл','Перевела'])}</button>`:d.to===v?'<span class="pill wait">ждёт перевода вам</span>':''}</span></div>`).join('')||empty('Все в расчёте.');
+  const exp=S.expenses.slice().sort((a,b)=>b.t-a.t).slice(0,10).map(e=>`<li><span>${esc(e.what)} <span class="pill">${esc(KIND[e.cat]||'другое')}</span><br><span class="d">${esc(sname(e.by))} · ${when(e.t)}</span></span><span class="num">${rub(e.amount)}</span></li>`).join('');
+  const tr=S.transfers.slice().sort((a,b)=>b.t-a.t).slice(0,6).map(x=>`<li><span>${esc(sname(x.from))} → ${esc(sib(x.to)?sib(x.to).dat:'')}<br><span class="d">${when(x.t)}</span></span><span class="num">${rub(x.amount)}</span></li>`).join('');
+  const parts=S.sibs.map(s=>`<i class="pf${s.c}" style="width:${sh[s.id].toFixed(2)}%"></i>`).join('');
+  return `${signBanner(v)}<h1 class="screen-title">Деньги</h1>
+  <div class="stats"><div class="stat"><b>${rub(month)}</b><span>потрачено на маму за 30 дней</span></div><div class="stat"><b>${pc(v)}</b><span>ваша доля по договору</span></div><div class="stat"><b class="${net>=0?'plus':'minus'}">${net>=0?'+':'−'}${rub(Math.abs(net))}</b><span>${net>=0?'вы заплатили больше доли':'вы должны'}</span></div></div>
+  <section class="block"><h2>Кто кому должен</h2>${debts}<p class="hint">Переводите в своём банке, как привыкли. Ладно не проводит платежи, а только записывает, что перевод был, чтобы это видели все.</p></section>
+  <section class="block"><div class="block-head"><h2>Доли по договору</h2><button class="btn sm ghost" data-act="tab" data-tab="contract">Пункт 5 договора</button></div>
+    <div class="split" role="img" aria-label="Доли: ${esc(sharesText())}">${parts}</div>
+    <div class="legend">${S.sibs.map(s=>`<span><i class="pf${s.c}"></i>${esc(s.name)} ${pc(s.id)}</span>`).join('')}</div>
+    <ul class="list">${S.sibs.map(s=>{const n=Math.round(m.net[s.id]);return `<li><span><b>${esc(s.name)}</b><br><span class="d">${g(s.id,['заплатил','заплатила'])} ${rub(m.paid[s.id])} · доля ${rub(m.tot*sh[s.id]/100)}</span></span><span class="${n>=0?'plus':'minus'}">${n>=0?'+':'−'}${rub(Math.abs(n))}</span></li>`}).join('')}</ul>
+    <p class="hint">Плюс — заплатил больше своей доли, минус — меньше. Переводы уже учтены. Всего общих трат: ${rub(m.tot)}.</p></section>
+  <section class="block"><div class="block-head"><h2>Траты на маму</h2><button class="btn sm primary" data-act="addExp">Добавить трату</button></div><ul class="list">${exp}</ul>
+    <p class="hint">${S.contract.askOver?`По договору траты больше ${rub(S.contract.askOver)} сначала согласуют с остальными.`:'По договору любую трату сначала согласуют.'}</p></section>
+  ${tr?`<section class="block"><h2>Переводы</h2><ul class="list">${tr}</ul></section>`:''}`;
+};
+SV.contract=v=>contractView(v);
+
+/* ---------- Экран мамы ---------- */
+function vMom(){
+  const n=Date.now(),ci=checkinOn(n),caller=callerOf(n),called=callsOn(n);
+  const msg=UI.momMsg&&n-UI.momMsg.t<15*MIN?`<div class="mom-msg" role="status">${esc(UI.momMsg.text)}</div>`:'';
+  const items=[];
+  S.tasks.filter(t=>t.from==='mom'&&MOMK[t.kind]&&(t.status!=='done'||(!t.confirmed&&MOMK[t.kind].ask))).sort((a,b)=>b.t-a.t).forEach(t=>{
+    const k=MOMK[t.kind];
+    if(t.status==='open')items.push(`<li><span><b>${esc(k.title)}</b>. Передали детям, ждём, кто возьмётся.</span></li>`);
+    else if(t.status==='taken')items.push(`<li><span><b>${esc(sname(t.by))}</b> ${esc(g(t.by,k.take))}.</span></li>`);
+    else items.push(`<li><span><b>${esc(sname(t.by))}</b> ${esc(g(t.by,k.done))}${t.how?': '+esc(t.how.charAt(0).toLowerCase()+t.how.slice(1)):''}. ${esc(k.ask)}</span><button class="btn primary huge" data-act="momGot" data-id="${t.id}">${esc(k.got)}</button></li>`);
+  });
+  S.tasks.filter(t=>t.status==='taken'&&t.where==='site'&&t.from!=='mom').forEach(t=>items.push(`<li><span><b>${esc(sname(t.by))}</b> ${esc(t.mom||'придёт: '+t.title.toLowerCase())}${t.due?' '+esc(t.due):''}.</span></li>`));
+  const B=(k,cls)=>`<button class="mbtn ${cls||''}" data-act="mom" data-kind="${k}"><b>${esc(MOMK[k].title)}</b><span>${esc(MOMK[k].sub)}</span></button>`;
+  return `<div class="mom">
+    <div><p class="mom-date">${esc(cap(new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})))}</p><h1>Здравствуйте, ${esc(S.mom.name)}!</h1></div>
+    ${msg}
+    <button class="mbtn ok" data-act="mom" data-kind="ok"><b>Я в порядке</b><span>${ci?`Сегодня вы отметились в ${hm(ci)}. Дети это видят.`:'Нажмите утром, и дети не будут волноваться'}</span></button>
+    <div class="mgrid">${B('food')}${B('meds')}${B('call')}${B('broken')}</div>
+    ${B('bad','bad')}
+    <section class="mom-box"><h2>Что делают дети</h2><ul class="mom-list">${items.join('')||'<li><span>Пока просьб нет. Если что-то нужно, нажмите кнопку выше.</span></li>'}</ul></section>
+    <section class="mom-box"><h2>Сегодня вам звонит ${esc(sname(caller))}</h2><p>${called.length?called.map(c=>`${esc(sname(c.by))} уже ${g(c.by,['звонил','звонила'])} в ${hm(c.t)}.`).join(' '):'Вечером, как договорились.'}</p></section>
+    <p class="mom-note">Здесь видны только ваши просьбы и отметки. Болезни и диагнозы сюда не записываются.</p>
+  </div>`;
+}
+
+/* ---------- Договор ---------- */
+function clauses(){
+  const c=S.contract,near=nearSib(),fn=farNames(),med=sib(c.medical)||near,sh=c.shares;
+  const reason=S.sibs.some(s=>sh[s.id]>sh[near.id]+0.01)?`${near.name} платит меньше, потому что больше помогает временем. `:'';
+  return [
+    `<b>Визиты.</b> ${esc(near.name)} заходит к маме ${c.visits} ${pl(c.visits,'раз','раза','раз')} в неделю. ${esc(fn)} приезжают по очереди, вместе ${c.farVisits} ${pl(c.farVisits,'раз','раза','раз')} в месяц, чтобы ${esc(near.name)} могла отдохнуть.`,
+    `<b>Звонки.</b> Каждый вечер маме звонит кто-то один, по очереди: ${esc(S.calls.order.map(sname).join(', '))}. Поменяться можно, но без звонка мама не остаётся ни дня.`,
+    `<b>Отметка.</b> Утром мама нажимает «Я в порядке». Если отметки нет до ${c.checkBy}:00, дежурный звонит ей сразу.`,
+    `<b>Удалённые дела.</b> Заказы, оплату счетов, запись к врачу и поиск мастера в первую очередь берут ${esc(fn)}. Дела на месте — ${esc(near.name)}.`,
+    `<b>Деньги.</b> Общие траты на маму делим так: ${esc(sharesText())}. ${esc(reason)}Каждая трата записывается в тот же день. Долги закрываем раз в месяц переводом в своём банке.`,
+    `<b>Крупные траты.</b> ${c.askOver?`Траты до ${rub(c.askOver)} — без согласования. Больше — сначала спрашиваем остальных.`:'Любую трату сначала согласуем со всеми.'}`,
+    `<b>Медицинские вопросы</b> решает мама вместе с ${esc(med.ins)}. ${esc(med.name)} ходит с ней к врачу и рассказывает остальным то, что мама разрешила. Остальные не спорят задним числом.`,
+    `<b>Экстренный случай.</b> Если мама нажала «Плохо себя чувствую» или не отвечает, дежурный звонит ей сразу. Не дозвонился — сообщает ${esc(near.dat)}, и ${esc(near.name)} едет к маме. Если нужна скорая, её вызывает тот, кто узнал первым, и сразу сообщает ${esc(med.dat)}.`,
+    `<b>Данные.</b> В Ладно только просьбы, дела, напоминания и траты. Диагнозов, анализов и названий болезней здесь нет. Мама согласна на это и может отозвать согласие, сказав любому из нас.`,
+    `<b>Изменения.</b> Любое изменение — новая версия, которую подписывают все трое. Задним числом ничего не меняется. История видна всем.`
+  ].map(x=>`<li>${x}</li>`).join('');
+}
+function contractView(v){
+  const c=S.contract,all=S.sibs.every(s=>c.signed[s.id]),near=nearSib();
+  const signs=S.sibs.map(s=>`<div class="sign"><span class="hand">${c.signed[s.id]?esc(s.name):''}</span><span class="who">${esc(s.name)}${!c.signed[s.id]?(v===s.id?` · <button class="btn sm accent" data-act="sign" data-who="${s.id}">Подписать</button>`:' · ещё не '+g(s.id,['подписал','подписала'])):''}</span></div>`).join('')
+    +`<div class="sign"><span class="hand mom">Галина П.</span><span class="who">Согласие мамы, дано лично ${dstr(c.consent.t)}</span></div>`;
+  const hist=S.log.slice().sort((a,b)=>b.t-a.t).slice(0,14).map(l=>`<li><span>${esc(l.text)}<br><span class="d">${when(l.t)}</span></span>${l.amount?`<span class="num">${rub(l.amount)}</span>`:''}</li>`).join('');
+  return `<h1 class="screen-title">Договор</h1>
+  <section class="paper"><span class="stamp ${all?'':'no'}">${all?'ДЕЙСТВУЕТ':'ЖДЁТ ПОДПИСЕЙ'}</span>
+    <div><h2>Семейный договор о заботе</h2><p class="ver">Версия ${c.ver} · о маме: ${esc(S.mom.name)}, ${S.mom.age} лет, ${esc(S.mom.city)}</p></div>
+    ${!all&&c.change?`<div class="banner gold small"><span>Что изменилось в версии ${c.ver}: ${esc(c.change)}</span></div>`:''}
+    <ol class="clauses">${clauses()}</ol><div class="signs">${signs}</div></section>
+  <section class="block"><h2>Изменить договор</h2>
+    ${setNum('visits',`Визитов ${near.gen} в неделю`,0,7,'Если она в отъезде, визиты берут остальные.')}
+    ${setNum('farVisits','Приездов Игоря и Паши в месяц, вместе',0,8,'Чтобы мама видела всех, а Наташа могла отдохнуть.')}
+    ${setNum('checkBy','До какого часа мама отмечается',7,20,'Нет отметки к этому часу — дежурный звонит сразу.')}
+    ${setNum('askOver','Траты без согласования, до ₽',0,100000,'Больше — сначала спросить остальных.')}
+    ${setSel('medical','Кто вместе с мамой решает медицинские вопросы',S.sibs.map(s=>[s.id,s.name]),'Этот пункт обсудите с мамой лично.')}
+    <div class="setting"><span class="lbl">Доли в расходах</span><button class="btn sm" data-act="shares">Изменить</button><span class="hint">Сейчас: ${esc(sharesText())}.</span></div>
+    <p class="hint">Изменить может любой из троих. Новая версия вступает в силу, когда подпишут все.</p></section>
+  <section class="block"><h2>Пример семьи</h2><p class="small">Все данные здесь — пример. Они хранятся только в этом браузере.</p><div class="row"><button class="btn sm ghost" data-act="reset">Вернуть пример к началу</button></div></section>
+  <section class="block"><h2>История</h2><ul class="list">${hist}</ul></section>`;
+}
+function setNum(key,label,min,max,hint){return `<div class="setting"><label for="c-${key}">${esc(label)}</label><input id="c-${key}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${S.contract[key]}" data-set="${key}" data-min="${min}" data-max="${max}"><span class="hint">${esc(hint)}</span></div>`}
+function setSel(key,label,opts,hint){return `<div class="setting"><label for="c-${key}">${esc(label)}</label><select id="c-${key}" data-set="${key}">${opts.map(([v,l])=>`<option value="${v}" ${S.contract[key]===v?'selected':''}>${esc(l)}</option>`).join('')}</select><span class="hint">${esc(hint)}</span></div>`}
+function changeContract(text,apply){
+  apply();const c=S.contract,who=UI.role;c.ver++;S.sibs.forEach(s=>c.signed[s.id]=s.id===who);c.change=`${sname(who)}: ${text}`;
+  addLog({kind:'contract',text:`${sname(who)} ${g(who,['изменил','изменила'])} договор: ${text} (версия ${c.ver})`});
+  commit('Договор изменён. Новая версия ждёт подписей');
+}
+
+/* ---------- Проблемы и решения ---------- */
+const PROBLEMS=[
+ {id:'one',p:'В 62% семей все расходы на уход за родителем лежат на одном ребёнке, чаще на дочери. Разделить нагрузку удаётся только в 28% семей',src:'исследование «ИнтерПенсионер», пересказ Mail.ru Финансы, 2026',s:'«Нагрузка за неделю» показывает вклад каждого: часы, дела и деньги. Если один тянет больше, это видно сразу, и никого не нужно упрекать.',role:'natasha',tab:'today'},
+ {id:'cost',p:'Уход стоит 20–50 тыс. ₽ в месяц, в Москве 45–55 тыс. ₽',src:'«ИнтерПенсионер», пересказ Mail.ru Финансы, 2026',s:'Каждая трата на маму записывается в тот же день: что купили, кто платил, сколько. Видно, сколько уходит за месяц и на что.',role:'igor',tab:'money'},
+ {id:'money',p:'Непонятно, кто сколько вложил, и из-за денег ссорятся. А вместе дешевле: кто ухаживает один, тратит около 20 тыс. ₽ в месяц, кто делит с родственниками — 7–15 тыс. ₽',src:'«Выберу.ру», пересказ Mail.ru Финансы, 2026. Про ссоры — вывод исследования, не замер',s:'Доли записаны в договоре: поровну или, например, 30/40/30, если кто-то больше помогает временем. Ладно считает, кто кому должен, а кнопка «Перевёл» закрывает долг. Крупные траты сначала согласуют.',role:'igor',tab:'money'},
+ {id:'analog',p:'Российских приложений, где братья и сёстры вместе ухаживают за родителями, не нашли. CaringBridge и Lotsa Helping Hands больше про новости и разовую помощь',src:'исследование, октябрь 2026 (RuStore отдельно не проверяли); Caring Village, 2026',s:'Ладно про регулярную нагрузку: визиты в неделю, очередь звонков, счета каждый месяц и общие деньги. Всё это записано в договоре, который подписывают все.',role:'natasha',tab:'contract'},
+ {id:'near',p:'Всё ложится на того, кто живёт рядом',src:'вывод исследования по данным «ИнтерПенсионер», 2026',s:'Каждое дело помечено «на месте» или «удалённо». Заказать продукты, оплатить счета, записать к врачу, найти мастера можно из Москвы или Казани. По договору такие дела сначала берут Игорь и Паша.',role:'pasha',tab:'today'},
+ {id:'tech',p:'Пожилым родителям трудно со сложными приложениями',src:'гипотеза: в исследовании это не измеряли',s:'«Экран мамы»: шесть крупных кнопок, крупный текст, высокий контраст. Мама ничего не печатает и не выбирает из списков. Одно нажатие, и дети видят просьбу, а мама видит, кто придёт или что заказали.',role:'mom',tab:'mom'},
+ {id:'giants',p:'«Всё в одном» уже занято: «Городские сервисы» Яндекса — 215,6 млрд ₽ выручки за II квартал 2026 года, у Плюса 49,4 млн подписчиков, у Т-Банка есть раздел «Город», у Wildberries — WB Услуги',src:'Интерфакс, 29.07.2026; Lenta.ru, 07.10.2026; Mail.ru Финансы, около сентября 2026',s:'Ладно с ними не спорит. Это одно место для всего, что нужно маме, а не магазин всего на свете. Исследование называет «бытовую помощь пожилым родителям, платит взрослый ребёнок» узкой нишей, где маленькая команда может сама владеть доверием.',role:'igor',tab:'tasks'},
+ {id:'noapi',p:'У Яндекс Еды, Самоката, Лавки, Купера и такси нет открытого доступа для заказа из чужого приложения. Агрегаторы закрывались: X5 закрыла «Около», golama закрылась из-за нехватки денег',src:'вывод исследования, октябрь 2026; vc.ru',s:'Ладно координирует, а не собирает заказы. Просьба создаётся здесь, кто-то её берёт и заказывает там, где привык. Ладно хранит статус, кто платил и сколько.',role:'igor',tab:'tasks'},
+ {id:'trust',p:'75% пользователей опасаются утечки персональных данных. Новичку, который просит карты и адреса, не доверяют',src:'опрос edna, по CISOClub, дата не установлена',s:'Ладно не просит карты и пароли от сервисов. Заказы и оплаты остаются в приложениях, которым семья уже доверяет. Здесь только дела, отметки и суммы.',role:'pasha',tab:'tasks'},
+ {id:'health',p:'Медицинские данные — чувствительные персональные данные',src:'152-ФЗ; вывод исследования, октябрь 2026',s:'Только напоминания и дела: «лекарства по списку», «к врачу в четверг, 10:00». Диагнозов, анализов и названий болезней нет. Согласие мамы записано в договоре, отозвать его можно в любой момент.',role:'natasha',tab:'contract'},
+ {id:'coord',p:'Треть семейных опекунов в США называют координацию ухода трудной. В среднем уход занимает 27 часов в неделю',src:'AARP, 24.07.2025',s:'Очередь «Кто звонит маме сегодня» и утренняя отметка «Я в порядке». Каждый день ясно, кто на связи, и маме не звонят трое подряд.',role:'igor',tab:'today'},
+ {id:'split',p:'Делить общие расходы — «красный океан»: Splitwise и Tricount, у Splitwise Pro $5 в месяц',src:'IT Voice, данные 2023 года',s:'Деньги здесь — вспомогательная часть и только для трат на маму. Своих платежей нет: переводите в своём банке, а здесь отмечаете «Перевёл».',role:'igor',tab:'money'}
+];
+const WHY={'s:today':['one','near','coord'],'s:tasks':['noapi','giants','trust','near'],'s:money':['cost','money','split'],'s:contract':['analog','health','money'],'mom':['tech','health','coord']};
+function whyCard(x,withBtn){return `<div class="why-card"><span class="p">Проблема: ${esc(x.p)}</span><span class="src">${esc(x.src)}</span><span class="s">${esc(x.s)}</span>${withBtn&&x.role?`<div><button class="btn sm" data-act="goto" data-role="${x.role}" data-tab="${x.tab}">Показать в прототипе</button></div>`:''}</div>`}
+function whyList(){const key=isMom()?'mom':'s:'+UI.tab;return (WHY[key]||[]).map(id=>PROBLEMS.find(p=>p.id===id)).filter(Boolean)}
+function whyAside(){
+  if(UI.tab==='solutions')return `<div class="why"><div class="why-head"><h2>Как пользоваться</h2></div><div class="why-card"><span class="s">Вверху переключайтесь между Наташей, Игорем, Пашей и экраном мамы: это одна семья глазами разных людей. Начните с экрана мамы: нажмите «Нужны лекарства» и посмотрите, что увидят дети. «Показать в прототипе» открывает нужное место.</span></div></div>`;
+  return `<div class="why"><div class="why-head"><h2>Почему так сделано</h2><button class="btn sm ghost" data-act="solutions">Все ${PROBLEMS.length} решений</button></div>${whyList().map(x=>whyCard(x,false)).join('')}</div>`;
+}
+function whyInline(){const l=whyList();if(!l.length)return '';return `<details class="why-inline"><summary>Почему так сделано</summary>${l.map(x=>whyCard(x,false)).join('')}</details>`}
+function vSolutions(){
+  return `<h1 class="screen-title">Проблемы и решения</h1>
+  <p class="muted">Что мы нашли в исследовании и как прототип это решает. Цифры — из отчёта «Семейная мотивация и единые сервисы» и заметок к нему, там же ссылки. Где данных нет, так и написано.</p>
+  <div class="sol">${PROBLEMS.map(x=>whyCard(x,true)).join('')}</div>
+  <section class="block"><h2>Что нужно для настоящего продукта</h2><ul class="future">
+    <li><span><b>Синхронизация и ссылка-приглашение.</b> Наташа создаёт семью и присылает братьям ссылку. Вход по номеру телефона, изменения видны всем сразу.</span></li>
+    <li><span><b>Уведомления.</b> Просьба мамы приходит всем сразу. Дежурному — напоминание о звонке. Всем — если мама не отметилась до 12:00.</span></li>
+    <li><span><b>Для мамы — проще, чем приложение.</b> Режим планшета: один экран с крупными кнопками и ничего лишнего. Идея на проверку: утренний звонок-автоответчик на обычный телефон, «нажмите 1, если всё в порядке».</span></li>
+    <li><span><b>Данные.</b> Серверы в России, отдельное согласие мамы, никаких диагнозов. Только дела, отметки и суммы.</span></li>
+    <li><span><b>Кто платит.</b> Взрослый ребёнок, одна семейная подписка на всех. Цена — гипотеза: рублёвых цен на похожие приложения и данных о спросе на координацию помощи пожилым исследование не нашло.</span></li>
+    <li><span><b>Каналы.</b> Веб-приложение по ссылке и бот в MAX и Telegram для напоминаний: в 2026 году аудитория перетекает из Telegram в MAX.</span></li>
+    <li><span><b>Потом — местные службы.</b> Партнёрства с проверенными сиделками, мастерами и аптеками в городе мамы, возможно с НПФ (по выводу исследования, тема им интересна). Для этого нужен человек-координатор: растёт медленно, но держится на доверии.</span></li>
+  </ul></section>
+  <section class="block"><h2>Как понять, что идея работает</h2><ul class="future">
+    <li><span>Через 4 недели в семье отмечаются хотя бы двое из троих детей.</span></li>
+    <li><span>Мама сама отмечается хотя бы 5 дней из 7.</span></li>
+    <li><span>Те, кто живёт далеко, берут хотя бы треть дел.</span></li>
+    <li><span>Долги закрываются в течение месяца, без напоминаний.</span></li>
+  </ul></section>`;
+}
+
+/* ---------- Отрисовка ---------- */
+const TABS=[['today','Сегодня'],['tasks','Дела'],['money','Деньги'],['contract','Договор']];
+const ROLES=()=>[...S.sibs.map(s=>({id:s.id,name:s.name,av:s.name[0],cls:'pa'+s.c})),{id:'mom',name:'Экран мамы',av:'М',cls:'pam'}];
+function badge(tab){
+  const v=UI.role;
+  if(tab==='today')return S.tasks.filter(t=>t.from==='mom'&&t.status==='open').length;
+  if(tab==='money')return money().debts.filter(d=>d.from===v).length;
+  if(tab==='contract')return S.contract.signed[v]?0:1;
+  return 0;
+}
+function render(){
+  if(UI.role!=='mom'&&!sib(UI.role))UI.role='natasha';
+  if(UI.tab!=='solutions'){if(isMom())UI.tab='mom';else if(!TABS.some(t=>t[0]===UI.tab))UI.tab='today'}
+  $('#roles').innerHTML=`<span class="roles-label">Смотреть как:</span>`+ROLES().map(r=>`<button class="role" role="tab" aria-selected="${UI.role===r.id}" data-act="role" data-role="${r.id}"><span class="av ${r.cls}" aria-hidden="true">${esc(r.av)}</span>${esc(r.name)}</button>`).join('');
+  const sol=UI.tab==='solutions';
+  $('#screen').innerHTML=(sol?vSolutions():isMom()?vMom():SV[UI.tab](UI.role))+(sol?'':whyInline());
+  const tb=$('#tabs');tb.hidden=isMom();
+  tb.innerHTML=isMom()?'':TABS.map(([id,l])=>{const b=badge(id);return `<button class="tab" role="tab" aria-selected="${UI.tab===id}" data-act="tab" data-tab="${id}">${l}${b?`<span class="badge">${b}</span>`:''}</button>`}).join('');
+  $('#why').innerHTML=whyAside();
+}
+
+/* ---------- Окно формы ---------- */
+let onSubmit=null;
+function sheet(title,body,ok,fn){$('#sheet-title').textContent=title;$('#sheet-body').innerHTML=body;$('#sheet-ok').textContent=ok;$('#sheet-err').textContent='';onSubmit=fn;$('#sheet').hidden=false;setTimeout(()=>{const f=$('#sheet-body').querySelector('input:not([type=hidden]),select,textarea');if(f)f.focus()},40)}
+function closeSheet(){$('#sheet').hidden=true;onSubmit=null}
+$('#sheet-form').addEventListener('submit',e=>{e.preventDefault();if(!onSubmit)return;const f=Object.fromEntries(new FormData(e.target));const fn=onSubmit;const err=fn(f);if(err){$('#sheet-err').textContent=err;return}if(onSubmit===fn)closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+const fld=(id,label,input)=>`<div class="fld"><label for="${id}">${label}</label>${input}</div>`;
+const numIn=(id,name,val,min,max)=>`<input id="${id}" name="${name}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${val}">`;
+const txtIn=(id,name,val,max,ph)=>`<input id="${id}" name="${name}" maxlength="${max}" value="${esc(val||'')}"${ph?` placeholder="${esc(ph)}"`:''}>`;
+const sibSel=(id,name,val)=>`<select id="${id}" name="${name}">${S.sibs.map(s=>`<option value="${s.id}" ${s.id===val?'selected':''}>${esc(s.name)}</option>`).join('')}</select>`;
+const int=v=>{const n=Math.round(Number(v));return Number.isFinite(n)?n:NaN};
+const SHP={eq:null,a:{natasha:30,igor:40,pasha:30},b:{natasha:20,igor:40,pasha:40}};
+function shHint(){const h=$('#f-sh-hint');if(!h)return;if($('#f-eq').value==='1'){h.textContent='Поровну: каждому по трети.';return}const s=S.sibs.reduce((a,x)=>a+(int($('#f-sh-'+x.id).value)||0),0);h.textContent=`Сумма: ${s}%`+(s===100?'':' — нужно ровно 100%')}
+document.addEventListener('input',e=>{const t=e.target;if(t.id&&t.id.startsWith('f-sh-')&&t.id!=='f-sh-hint'){$('#f-eq').value='';shHint()}});
+document.addEventListener('change',e=>{
+  const el=e.target,key=el.dataset&&el.dataset.set;if(!key)return;
+  let v;
+  if(el.tagName==='SELECT')v=el.value;
+  else{v=int(el.value);const mn=+el.dataset.min,mx=+el.dataset.max;if(!Number.isFinite(v)||v<mn||v>mx){el.value=S.contract[key];toast(`Нужно число от ${fmt(mn)} до ${fmt(mx)}`);return}}
+  if(S.contract[key]===v)return;
+  const label=el.closest('.setting').querySelector('label').textContent;
+  const shown=key==='medical'?sname(v):key==='askOver'?rub(v):key==='checkBy'?v+':00':String(v);
+  changeContract(`«${label}» — ${shown}`,()=>{S.contract[key]=v});
+});
+function finishTask(t,by,f){
+  const sum=int(f.sum||0),payer=f.payer||by,n=Date.now();
+  t.status='done';t.doneAt=n;t.by=by;t.how=(f.how||'').trim();
+  if(sum>0){t.cost=sum;S.expenses.unshift({id:uid(),by:payer,cat:t.kind==='bad'?'other':t.kind,what:t.from==='mom'&&MOMK[t.kind]&&MOMK[t.kind].what?MOMK[t.kind].what:t.title,amount:sum,t:n,task:t.id})}
+  if(t.kind==='call')S.calls.log.unshift({by,t:n});
+  if(t.from==='mom'&&!(MOMK[t.kind]&&MOMK[t.kind].ask))t.confirmed=true;
+  if(t.repeat&&t.from!=='mom')S.tasks.push(Object.assign({},t,{id:uid(),status:'taken',doneAt:null,how:'',cost:0,confirmed:false,due:'',t:n}));
+  const ttl=t.from==='mom'&&MOMK[t.kind]?`${g(by,MOMK[t.kind].done)} по просьбе мамы`:`${g(by,['сделал','сделала'])}: ${t.title}`;
+  addLog({kind:'task',text:`${sname(by)} ${ttl}`,amount:sum>0?sum:0});
+  return sum;
+}
+
+/* ---------- Действия ---------- */
+const ACT={
+  role:d=>{const was=UI.role;UI.role=d.role;if(d.role==='mom')UI.tab='mom';else if(UI.tab==='solutions'||UI.tab==='mom'||was==='mom')UI.tab='today';commit();scrollTo(0,0)},
+  tab:d=>{UI.tab=d.tab;commit();scrollTo(0,0)},
+  solutions:()=>{UI.tab='solutions';commit();scrollTo(0,0)},
+  goto:d=>{UI.role=d.role;UI.tab=d.tab;commit();scrollTo(0,0)},
+  filter:d=>{UI.filter=d.f;commit()},
+  closeSheet,
+  mom:d=>{
+    const k=d.kind,n=Date.now();
+    if(k==='ok'){S.checkins.unshift(n);addLog({kind:'checkin',text:'Мама отметилась: «Я в порядке»'});UI.momMsg={t:n,text:`Спасибо! Дети видят, что у вас всё хорошо (${hm(n)}).`};commit();scrollTo(0,0);return}
+    const m=MOMK[k],ex=S.tasks.find(t=>t.from==='mom'&&t.kind===k&&t.status!=='done');
+    if(ex)UI.momMsg={t:n,text:ex.status==='taken'?`Уже передано. ${sname(ex.by)} ${g(ex.by,m.take)}.`:'Уже передали детям. Скоро кто-нибудь возьмётся.'};
+    else{
+      S.tasks.unshift({id:uid(),from:'mom',kind:k,title:m.title,where:'remote',min:m.min,status:'open',t:n});
+      addLog({kind:'req',text:`Мама нажала «${m.title}»`});
+      const c=callerOf(n);
+      UI.momMsg={t:n,text:k==='bad'?`Передали детям. ${sname(c)} позвонит вам прямо сейчас. Если совсем плохо, вызывайте скорую.`:`Готово. Передали детям: «${m.title}». Здесь появится, кто взялся.`};
+    }
+    commit();scrollTo(0,0);
+  },
+  momGot:d=>{const t=task(d.id);t.confirmed=true;addLog({kind:'task',text:`Мама подтвердила: ${(MOMK[t.kind]&&MOMK[t.kind].got||'получила').toLowerCase()}`});UI.momMsg={t:Date.now(),text:`Спасибо! ${sname(t.by)} увидит, что всё в порядке.`};commit();scrollTo(0,0)},
+  take:d=>{const t=task(d.id),v=UI.role;if(!t||t.status!=='open')return;t.status='taken';t.by=v;addLog({kind:'task',text:`${sname(v)} ${g(v,['взял','взяла'])}: ${t.from==='mom'?'просьбу мамы «'+t.title+'»':t.title}`});
+    commit(t.from==='mom'&&MOMK[t.kind]?`Мама увидит: ${sname(v)} ${g(v,MOMK[t.kind].take)}`:'Дело ваше. Когда сделаете, нажмите «Готово»')},
+  drop:d=>{const t=task(d.id);t.status='open';t.by=null;commit('Дело вернулось в общий список')},
+  done:d=>{
+    const t=task(d.id),v=UI.role,k=t.kind,ask=t.from==='mom'&&MOMK[k]&&MOMK[k].ask;
+    sheet(t.from==='mom'&&MOMK[k]?`Готово: просьба мамы «${MOMK[k].title}»`:'Готово: '+t.title,
+      fld('f-how','Что сделали',txtIn('f-how','how','',90,HOWPH[k]||'Коротко: что сделано'))+
+      `<div class="fld2">${fld('f-sum','Потратили, ₽',numIn('f-sum','sum',0,0,1000000))}${fld('f-pay','Кто платил',sibSel('f-pay','payer',v))}</div>`+
+      `<p class="hint">Если платили за маму, впишите сумму: она попадёт в общие траты и разделится по долям из договора (${esc(sharesText())}).${S.contract.askOver?` Траты больше ${rub(S.contract.askOver)} по договору сначала согласуют.`:''}</p>`+
+      (['bad','doctor','meds'].includes(k)?'<p class="hint">Не пишите диагнозы и названия болезней. Только что сделали.</p>':''),
+      'Готово',f=>{const sum=int(f.sum||0);if(!(sum>=0&&sum<=1000000))return 'Сумма: от 0 до 1 000 000 ₽.';if(!sib(f.payer))return 'Выберите, кто платил.';
+        finishTask(t,v,f);commit(`Готово${sum>0?`: ${rub(sum)} в общих тратах`:''}${ask?'. Мама подтвердит на своём экране':''}`)});
+  },
+  called:()=>{const v=UI.role,n=Date.now();S.calls.log.unshift({by:v,t:n});S.tasks.filter(t=>t.from==='mom'&&t.kind==='call'&&t.status!=='done').forEach(t=>{t.status='done';t.by=v;t.doneAt=n;t.confirmed=true});addLog({kind:'call',text:`${sname(v)} ${g(v,['позвонил','позвонила'])} маме`});commit('Отмечено: звонок маме')},
+  swap:()=>{const n=Date.now(),c=callerOf(n),others=S.sibs.filter(s=>s.id!==c);
+    sheet('Поменяться на сегодня',`<p class="small">Сегодня по очереди звонит ${esc(sname(c))}. Кто позвонит вместо?</p>`+fld('f-who','Кто звонит сегодня',`<select id="f-who" name="who">${others.map(s=>`<option value="${s.id}" ${s.id===UI.role?'selected':''}>${esc(s.name)}</option>`).join('')}</select>`)+'<p class="hint">Очередь на следующие дни не сдвигается.</p>','Поменяться',f=>{if(!sib(f.who))return 'Выберите, кто звонит.';S.calls.swap={day:sod(n),who:f.who};addLog({kind:'call',text:`Сегодня вместо ${sib(c).gen} маме звонит ${sname(f.who)}`});commit('Записано. Мама тоже это увидит')})},
+  order:d=>{const c=CATALOG.find(x=>x.kind===d.kind),v=UI.role;
+    sheet('Заказать для мамы: '+c.title.toLowerCase(),fld('f-title','Что нужно',txtIn('f-title','title',c.def,70))+fld('f-due','Когда',txtIn('f-due','due','сегодня',40))+
+      `<div class="fld tick"><input id="f-self" name="self" type="checkbox" checked><label for="f-self">${g(v,['Беру сам','Беру сама'])}: закажу там, где обычно заказываю</label></div>`+
+      '<p class="hint">Ладно не оформляет заказ и не берёт оплату. Вы заказываете в своём приложении или по телефону, а здесь отмечаете, что сделано и сколько заплатили. Остальные видят статус.</p>',
+      'Создать',f=>{const title=(f.title||'').trim();if(!title||title==='Мастер:')return 'Напишите, что именно нужно.';const self=!!f.self;
+        S.tasks.unshift({id:uid(),kind:c.kind,order:true,title,where:'remote',min:c.min,due:(f.due||'').trim(),status:self?'taken':'open',by:self?v:null,t:Date.now()});
+        addLog({kind:'task',text:`${sname(v)}: заказ для мамы «${title}»${self?', '+g(v,['взял','взяла'])+' себе':''}`});
+        commit(self?'Записано. Когда закажете, нажмите «Готово» и впишите сумму':'Просьба создана. Её видят все трое')})},
+  newTask:()=>{
+    const tpl=[['Оплатить коммуналку','bills','remote',15],['Записать к врачу онлайн','doctor','remote',15],['Заказать лекарства по списку','meds','remote',20],['Найти мастера','repair','remote',20],['Зайти к маме','visit','site',90],['Разложить таблетки на неделю','meds','site',20]];
+    sheet('Новое дело',`<div class="row">${tpl.map(([t,k,w,m])=>`<button type="button" class="chip" data-act="tpl" data-title="${esc(t)}" data-kind="${k}" data-where="${w}" data-min="${m}">${esc(t)}</button>`).join('')}</div>`+
+      fld('f-title','Что сделать',txtIn('f-title','title','',70))+
+      `<div class="fld2">${fld('f-where','Где',`<select id="f-where" name="where"><option value="remote">удалённо</option><option value="site">на месте</option></select>`)+fld('f-kind','Что это',`<select id="f-kind" name="kind">${['visit','meds','doctor','bills','repair','call','other'].map(k=>`<option value="${k}">${KIND[k]}</option>`).join('')}</select>`)}</div>`+
+      `<div class="fld2">${fld('f-min','Минут',numIn('f-min','min',20,5,600))+fld('f-due','Когда',txtIn('f-due','due','',40,'например, в пятницу'))}</div>`+
+      fld('f-rep','Повтор',`<select id="f-rep" name="repeat"><option value="">один раз</option><option>каждую неделю</option><option>раз в месяц</option></select>`)+
+      `<div class="fld tick"><input id="f-self" name="self" type="checkbox"><label for="f-self">${g(UI.role,['Беру сам','Беру сама'])}</label></div>`+
+      '<p class="hint">«Удалённо» — можно сделать из любого города: заказать, оплатить, записать, позвонить. «На месте» — нужно приехать к маме. Не пишите диагнозы: только что сделать и когда.</p>',
+      'Добавить',f=>{const title=(f.title||'').trim(),m=int(f.min);if(!title)return 'Напишите, что сделать.';if(!(m>=5&&m<=600))return 'Минуты: от 5 до 600.';
+        const t={id:uid(),title,kind:KIND[f.kind]?f.kind:'other',where:f.where==='site'?'site':'remote',min:m,due:(f.due||'').trim(),repeat:f.repeat||'',status:f.self?'taken':'open',by:f.self?UI.role:null,t:Date.now()};
+        S.tasks.unshift(t);addLog({kind:'task',text:`${sname(UI.role)} ${g(UI.role,['добавил','добавила'])} дело: ${title}`});commit('Дело добавлено')});
+  },
+  tpl:d=>{$('#f-title').value=d.title;$('#f-kind').value=d.kind;$('#f-where').value=d.where;$('#f-min').value=d.min},
+  addExp:()=>{const v=UI.role;
+    sheet('Трата на маму',fld('f-what','Что купили или оплатили',txtIn('f-what','what','',70,'Например: продукты на неделю'))+
+      `<div class="fld2">${fld('f-cat','Что это',`<select id="f-cat" name="cat">${['food','meds','bills','taxi','repair','clean','helper','other'].map(k=>`<option value="${k}">${KIND[k]}</option>`).join('')}</select>`)+fld('f-amt','Сумма, ₽',numIn('f-amt','amount',1000,1,1000000))}</div>`+
+      fld('f-pay','Кто платил',sibSel('f-pay','payer',v))+`<p class="hint">Сумма разделится по долям из договора: ${esc(sharesText())}.</p>`,
+      'Добавить',f=>{const w=(f.what||'').trim(),a=int(f.amount);if(!w)return 'Напишите, на что потратили.';if(!(a>=1&&a<=1000000))return 'Сумма: от 1 до 1 000 000 ₽.';if(!sib(f.payer))return 'Выберите, кто платил.';
+        S.expenses.unshift({id:uid(),by:f.payer,cat:KIND[f.cat]?f.cat:'other',what:w,amount:a,t:Date.now()});addLog({kind:'money',text:`${sname(f.payer)} ${g(f.payer,['заплатил','заплатила'])}: ${w}`,amount:a});commit('Трата записана')})},
+  paid:d=>{const v=UI.role,to=d.to,a0=+d.amount;
+    sheet('Перевод: '+sib(to).dat,fld('f-amt','Сколько перевели, ₽',numIn('f-amt','amount',a0,1,1000000))+`<p class="hint">Сначала переведите в своём банке, как привыкли: по номеру телефона или по карте. Здесь вы только отмечаете перевод, чтобы все видели. ${esc(sname(to))} может проверить у себя в банке.</p>`,
+      g(v,['Перевёл','Перевела']),f=>{const a=int(f.amount);if(!(a>=1&&a<=1000000))return 'Сумма: от 1 до 1 000 000 ₽.';
+        S.transfers.unshift({id:uid(),from:v,to,amount:a,t:Date.now()});addLog({kind:'money',text:`${sname(v)} ${g(v,['перевёл','перевела'])} ${sib(to).dat}`,amount:a});commit(`Отмечено: ${rub(a)} → ${sib(to).dat}`)})},
+  shares:()=>{const sh=S.contract.shares,eq=eqSh();
+    sheet('Доли в расходах',`<div class="row"><button type="button" class="chip" data-act="shPreset" data-p="eq">Поровну</button><button type="button" class="chip" data-act="shPreset" data-p="a">30 / 40 / 30</button><button type="button" class="chip" data-act="shPreset" data-p="b">20 / 40 / 40</button></div>`+
+      `<div class="fld2">${S.sibs.map(s=>fld('f-sh-'+s.id,esc(s.name)+', %',numIn('f-sh-'+s.id,'sh_'+s.id,eq?33:Math.round(sh[s.id]),0,100))).join('')}</div><input type="hidden" id="f-eq" name="eq" value="${eq?'1':''}"><p class="hint" id="f-sh-hint"></p><p class="hint">Порядок: ${S.sibs.map(s=>s.name).join(' / ')}. Изменение создаст новую версию договора, её подпишут все трое.</p>`,
+      'Сохранить',f=>{let ns={};if(f.eq==='1')S.sibs.forEach(s=>ns[s.id]=100/3);else{let sum=0;for(const s of S.sibs){const x=int(f['sh_'+s.id]);if(!(x>=0&&x<=100))return 'Доля — число от 0 до 100.';ns[s.id]=x;sum+=x}if(sum!==100)return `Сумма долей должна быть 100%, сейчас ${sum}%.`}
+        if(S.sibs.every(s=>Math.abs(ns[s.id]-sh[s.id])<0.01))return 'Доли не изменились.';
+        changeContract('доли в расходах — '+sharesText(ns),()=>{S.contract.shares=ns})});shHint()},
+  shPreset:d=>{const p=SHP[d.p];S.sibs.forEach(s=>$('#f-sh-'+s.id).value=p?p[s.id]:33);$('#f-eq').value=p?'':'1';shHint()},
+  sign:d=>{S.contract.signed[d.who]=true;const all=S.sibs.every(s=>S.contract.signed[s.id]);addLog({kind:'contract',text:`${sname(d.who)} ${g(d.who,['подписал','подписала'])} договор, версия ${S.contract.ver}`});if(all)addLog({kind:'contract',text:`Все подписали договор, версия ${S.contract.ver}`});commit(all?'Подписано. Договор действует':'Подписано')},
+  reset:()=>sheet('Вернуть пример к началу?','<p class="small">Все изменения в этом браузере пропадут, и пример семьи начнётся заново.</p>','Вернуть',()=>{S=seed();UI={role:'natasha',tab:'today',filter:'all',momMsg:null};commit('Пример восстановлен');scrollTo(0,0)})
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const fn=ACT[b.dataset.act];if(fn){e.preventDefault();fn(b.dataset,b)}});
+render();
+})();
+</script>
+
+</body></html>
