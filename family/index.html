@@ -1,0 +1,798 @@
+<meta charset="utf-8">
+<title>Ладно</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=Caveat:wght@600&display=swap">
+<style>
+/* Макет: телефонная колонка приложения слева, справа (на широком экране) — пояснения «почему так сделано». Печать-«Л» и подписи — мотив семейного договора. */
+:root{
+  --bg:#eef0f6; --surface:#ffffff; --ink:#1b2350; --muted:#5b6286; --line:#d8dbea;
+  --on-ink:#ffffff;
+  --accent:#e89a00; --accent-ink:#8f5600; --accent-soft:#fff2d2;
+  --parent:#3d55c9; --parent-soft:#e3e8ff;
+  --rel:#1f8a6b; --rel-soft:#dcf3ea;
+  --ok:#1f8a5b; --warn:#b26a00; --warn-soft:#fff0d9; --bad:#c0392b; --bad-soft:#fde6e3;
+  --f-display:"Unbounded","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-hand:"Caveat","Segoe Script","Comic Sans MS",cursive;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10132a; --surface:#1a1e3c; --ink:#eceefb; --muted:#a3a9cc; --line:#2d335c; --on-ink:#10132a;
+  --accent:#ffb625; --accent-ink:#ffcd5c; --accent-soft:#3a2e10;
+  --parent:#8fa2ff; --parent-soft:#262f63; --rel:#4fd1a5; --rel-soft:#143a31;
+  --ok:#4cc38a; --warn:#ffb54d; --warn-soft:#3b2a10; --bad:#ff7a6e; --bad-soft:#3d1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10132a; --surface:#1a1e3c; --ink:#eceefb; --muted:#a3a9cc; --line:#2d335c; --on-ink:#10132a;
+  --accent:#ffb625; --accent-ink:#ffcd5c; --accent-soft:#3a2e10;
+  --parent:#8fa2ff; --parent-soft:#262f63; --rel:#4fd1a5; --rel-soft:#143a31;
+  --ok:#4cc38a; --warn:#ffb54d; --warn-soft:#3b2a10; --bad:#ff7a6e; --bad-soft:#3d1c1a; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--parent);outline-offset:2px;border-radius:8px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;line-height:1.2;text-wrap:balance;margin:0}
+p{margin:0}
+.shell{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+
+/* Шапка */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bg);padding-block:12px 10px;display:grid;gap:10px;border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand b{font-family:var(--f-display);font-size:20px;letter-spacing:.01em;display:block;line-height:1}
+.brand small{color:var(--muted);font-size:12px}
+@media (max-width:520px){.brand small .wide{display:none}}
+.seal{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#2a1a00;font-family:var(--f-display);font-weight:700;font-size:18px;box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 5px #fff6;transform:rotate(-8deg)}
+.top-acts{display:flex;align-items:center;gap:8px}
+.saved{font-size:12px;color:var(--muted);transition:color .3s}
+.saved.flash{color:var(--ok)}
+.roles{display:flex;gap:6px;flex-wrap:wrap}
+.role{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:6px}
+.role .av{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--accent-ink)}
+.role.parent .av{background:var(--parent-soft);color:var(--parent)}
+.role[aria-selected="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.roles-label{font-size:12px;color:var(--muted);align-self:center;margin-right:2px}
+
+/* Раскладка */
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;padding-block:18px 0}
+.col{min-width:0;display:flex;flex-direction:column;min-height:calc(100vh - 140px)}
+#screen{display:flex;flex-direction:column;gap:18px;padding-bottom:24px;flex:1}
+aside#why{display:none}
+@media (min-width:980px){
+  .layout{grid-template-columns:minmax(0,500px) minmax(0,1fr)}
+  aside#why{display:block;position:sticky;top:130px;align-self:start}
+  .why-inline{display:none}
+}
+
+/* Нижние вкладки */
+.tabs{position:sticky;bottom:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:var(--r) var(--r) 0 0;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+.tab{border:0;background:none;padding:8px 4px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);position:relative}
+.tab[aria-selected="true"]{color:var(--ink);background:var(--bg)}
+.tab .badge{position:absolute;top:3px;right:calc(50% - 30px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;font-weight:600}
+
+/* Блоки */
+.screen-title{font-size:26px}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.block h2{font-size:16px}
+.block-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.note,.muted{color:var(--muted)}
+.small{font-size:13px}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+.hint{font-size:13px;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.btn.gold{background:var(--accent);color:#2a1a00;border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:9px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.chip{border:1px dashed var(--line);background:var(--bg);border-radius:999px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+.chip:hover{border-style:solid}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.pill.hot{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent;font-weight:600}
+.pill.ok{background:var(--rel-soft);color:var(--rel);border-color:transparent}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.wait{background:var(--parent-soft);color:var(--parent);border-color:transparent}
+
+/* Задания */
+.task{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.block h2 + .task,.block .block-head + .task{border-top:0;padding-top:0}
+.task-main{min-width:0;display:flex;flex-direction:column;gap:4px}
+.task-title{font-weight:600}
+.task-meta{font-size:13px;color:var(--muted)}
+.tags{display:flex;gap:5px;flex-wrap:wrap}
+.task-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.task-pts{font-family:var(--f-display);font-size:15px;color:var(--accent-ink)}
+.check{border-top:1px solid var(--line);padding-top:10px}
+.check:first-of-type{border-top:0;padding-top:0}
+.check .task{border:0;padding:0 0 8px}
+.check-acts{display:flex;gap:6px;flex-wrap:wrap}
+
+.duties{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.duty{width:100%;text-align:left;display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 12px;cursor:pointer}
+.duty .tick{width:20px;height:20px;border-radius:6px;border:2px solid var(--muted);flex:none;position:relative}
+.duty.on{color:var(--muted)}
+.duty.on .tick{background:var(--ok);border-color:var(--ok)}
+.duty.on .tick::after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+/* Торг */
+.deal{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.deal-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.deal-head b{font-weight:600}
+.thread{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.thread li{max-width:88%;padding:7px 11px;border-radius:12px;font-size:14px}
+.thread li.by-kid{align-self:flex-start;background:var(--accent-soft);border-bottom-left-radius:4px}
+.thread li.by-parent{align-self:flex-end;background:var(--parent-soft);border-bottom-right-radius:4px}
+.thread li b{font-weight:600}
+.thread .who{display:block;font-size:11.5px;color:var(--muted)}
+.deal-status{font-size:13px;font-weight:600}
+.deal-status.ok{color:var(--ok)} .deal-status.no{color:var(--bad)}
+
+/* Мечта */
+.hero{background:var(--accent-soft);border:1px solid transparent;border-radius:20px;padding:18px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.hero .txt{min-width:0;flex:1 1 200px;display:flex;flex-direction:column;gap:6px}
+.hero h1{font-size:24px}
+.hero .big{font-family:var(--f-display);font-size:28px;color:var(--accent-ink);font-variant-numeric:tabular-nums}
+.hero .big span{font-family:var(--f-body);font-size:14px;color:var(--muted);font-weight:500}
+.ringbox{position:relative;width:148px;height:148px;flex:none;max-width:100%}
+.ringbox svg{display:block}
+.ring-bg{fill:none;stroke:var(--surface);stroke-width:13}
+.ring-fg{fill:none;stroke:var(--accent);stroke-width:13;stroke-linecap:round;transition:stroke-dashoffset .7s ease}
+.ring-num{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ring-num b{font-family:var(--f-display);font-size:30px;line-height:1}
+.ring-num span{font-size:12px;color:var(--muted)}
+.wallet{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.wallet .bal{font-family:var(--f-display);font-size:24px;font-variant-numeric:tabular-nums}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.steps li{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:7px 0;position:relative}
+.steps li::before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:var(--surface);justify-self:center;z-index:1}
+.steps li.done::before{background:var(--accent);border-color:var(--accent)}
+.steps li:not(:last-child)::after{content:"";position:absolute;left:10px;top:24px;bottom:-8px;width:2px;background:var(--line)}
+.steps li.done:not(:last-child)::after{background:var(--accent)}
+.steps .pct{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.split{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--bg)}
+.split i{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.c-own{background:var(--accent)} .c-match{background:var(--parent)} .c-rel{background:var(--rel)}
+.streak{display:flex;gap:6px}
+.streak i{width:26px;height:26px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+.streak i.on{background:var(--accent);border-color:var(--accent)}
+.streak i.frz{background:var(--parent-soft);border-color:var(--parent)}
+.praise{background:var(--parent-soft);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.praise .who{font-size:12px;color:var(--parent);font-weight:600}
+.praise q{font-family:var(--f-hand);font-size:22px;line-height:1.2;quotes:"«" "»"}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.list li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.list li:first-child{border-top:0}
+.list .d{color:var(--muted);font-size:12.5px}
+.plus{color:var(--ok);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.minus{color:var(--bad);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.banner{border-radius:12px;padding:12px 14px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;font-size:14px}
+.banner.pause{background:var(--parent-soft);color:var(--ink)}
+.banner.warn{background:var(--warn-soft)}
+.banner.bad{background:var(--bad-soft)}
+.banner.gold{background:var(--accent-soft)}
+
+/* Сводки */
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stat b{font-family:var(--f-display);font-size:22px;display:block;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.bars{display:grid;gap:12px}
+.bar-row{display:grid;gap:5px}
+.bar-top{display:flex;justify-content:space-between;font-size:14px;gap:8px}
+.bar{height:10px;border-radius:5px;background:var(--bg);overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--parent);border-radius:5px}
+.bar i.over{background:var(--accent)}
+.kidcard{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.kidcard .ringbox{width:96px;height:96px}
+.kidcard .ring-num b{font-size:20px}
+
+/* Договор */
+.paper{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 18px;display:flex;flex-direction:column;gap:14px;position:relative}
+.paper h2{font-size:18px}
+.paper .ver{font-size:12px;color:var(--muted)}
+.clauses{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+.clauses li{padding-left:4px}
+.clauses li::marker{font-family:var(--f-display);font-size:13px;color:var(--accent-ink)}
+.signs{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;border-top:1px dashed var(--line);padding-top:14px}
+.sign{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sign .hand{font-family:var(--f-hand);font-size:26px;line-height:1;color:var(--parent);min-height:28px}
+.sign .who{font-size:12px;color:var(--muted);border-top:1px solid var(--muted);padding-top:3px}
+.stamp{position:absolute;right:14px;top:14px;transform:rotate(9deg);border:2px solid var(--ok);color:var(--ok);border-radius:8px;padding:2px 8px;font-family:var(--f-display);font-size:11px;letter-spacing:.06em}
+.stamp.no{border-color:var(--warn);color:var(--warn)}
+.setting{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.setting:first-of-type{border-top:0}
+.setting label{font-weight:500}
+.setting .hint{grid-column:1/-1}
+.setting input[type="number"]{width:84px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);text-align:right}
+.switch{appearance:none;width:44px;height:26px;border-radius:13px;background:var(--line);position:relative;cursor:pointer;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s}
+.switch:checked{background:var(--ok)}
+.switch:checked::after{left:21px}
+
+/* Почему так */
+.why{display:flex;flex-direction:column;gap:12px}
+.why-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.why-card .p{font-size:13px;color:var(--bad);font-weight:600}
+.why-card .src{font-size:12px;color:var(--muted)}
+.why-card .s{font-size:14.5px}
+.why-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.why-head h2{font-size:15px}
+details.why-inline{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px}
+details.why-inline summary{cursor:pointer;font-weight:600}
+details.why-inline[open] summary{margin-bottom:10px}
+details.why-inline .why-card{border:0;padding:10px 0;border-top:1px solid var(--line);border-radius:0}
+
+.sol{display:grid;gap:10px}
+.sol .why-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.future{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.future li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.future li::before{content:"";width:10px;height:10px;margin-top:7px;border-radius:3px;background:var(--parent)}
+
+/* Окно формы */
+.sheet{position:fixed;inset:0;z-index:20;display:grid;align-items:end;justify-items:center}
+.sheet-back{position:absolute;inset:0;background:#0b0e2299}
+.sheet-card{position:relative;width:min(520px,100%);max-height:88vh;overflow:auto;background:var(--surface);border-radius:20px 20px 0 0;padding:20px max(18px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;animation:up .22s ease}
+@media (min-width:640px){.sheet{align-items:center}.sheet-card{border-radius:20px}}
+@keyframes up{from{transform:translateY(24px);opacity:.6}}
+.sheet-card h2{font-size:18px}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld label{font-size:13px;font-weight:600}
+.fld input,.fld select,.fld textarea{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;width:100%}
+.fld.check{flex-direction:row;align-items:center;gap:10px}
+.fld.check input{width:auto}
+.sheet-actions{display:flex;gap:8px;justify-content:flex-end}
+.err{color:var(--bad);font-size:13px;min-height:1px}
+.err:empty{display:none}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:10px 16px;border-radius:12px;font-size:14px;z-index:30;max-width:calc(100% - 32px);box-shadow:0 8px 24px #0004;transition:opacity .25s}
+.toast[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="shell">
+  <header class="top">
+    <div class="top-in">
+      <div class="brand"><span class="seal" aria-hidden="true">Л</span><div><b>Ладно</b><small>семейный договор · прототип<span class="wide"> с примером семьи</span></small></div></div>
+      <div class="top-acts"><span id="saved" class="saved">Сохранено</span><button class="btn sm" data-act="solutions">Решения</button></div>
+    </div>
+    <div id="roles" class="roles" role="tablist" aria-label="Чьими глазами смотреть"></div>
+  </header>
+  <div class="layout">
+    <div class="col">
+      <main id="screen" aria-live="polite"></main>
+      <nav id="tabs" class="tabs" role="tablist" aria-label="Разделы"></nav>
+    </div>
+    <aside id="why" aria-label="Почему так сделано"></aside>
+  </div>
+</div>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-back" data-act="closeSheet"></div>
+  <form id="sheet-form" class="sheet-card" novalidate>
+    <h2 id="sheet-title"></h2>
+    <div id="sheet-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    <p id="sheet-err" class="err" role="alert"></p>
+    <div class="sheet-actions"><button type="button" class="btn ghost" data-act="closeSheet">Отмена</button><button id="sheet-ok" class="btn primary" type="submit">Готово</button></div>
+  </form>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+(function(){
+'use strict';
+const KEY='ladno-demo-v1', UIKEY='ladno-ui-v1', DAY=864e5, H=36e5;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Math.round(n).toLocaleString('ru-RU');
+function pl(n,a,b,c){n=Math.abs(Math.round(n));const m=n%100,k=n%10;if(m>10&&m<20)return c;if(k===1)return a;if(k>=2&&k<=4)return b;return c}
+const pts=n=>fmt(n)+' '+pl(n,'балл','балла','баллов');
+const sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()};
+function ago(t){const d=Math.round((sod(Date.now())-sod(t))/DAY);return d<=0?'сегодня':d===1?'вчера':d+' '+pl(d,'день','дня','дней')+' назад'}
+const dstr=t=>new Date(t).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+const tstr=t=>new Date(t).toLocaleString('ru-RU',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+const uid=()=>Math.random().toString(36).slice(2,9);
+
+/* ---------- Пример семьи ---------- */
+function seed(){
+  const n=Date.now();
+  return {
+    v:1, parent:'Папа',
+    kids:[{id:'misha',name:'Миша',age:12},{id:'anya',name:'Аня',age:8}],
+    wallet:{misha:180,anya:95},
+    dreams:{
+      misha:{title:'Игровой компьютер',price:12000,steps:['Выбрать корпус','Выбрать видеокарту','Составить список деталей с папой','Покупка'],contribs:[
+        {by:'own',from:'Миша',amount:1200,t:n-30*DAY},{by:'match',from:'Папа',amount:240,t:n-30*DAY},
+        {by:'rel',from:'Бабушка Валя',amount:500,t:n-21*DAY,note:'На день рождения'},
+        {by:'own',from:'Миша',amount:1000,t:n-14*DAY},{by:'match',from:'Папа',amount:200,t:n-14*DAY},
+        {by:'rel',from:'Дядя Коля',amount:250,t:n-10*DAY,note:'За помощь на даче'},
+        {by:'own',from:'Миша',amount:800,t:n-3*DAY},{by:'match',from:'Папа',amount:160,t:n-3*DAY}]},
+      anya:{title:'Велосипед с корзинкой',price:3000,steps:['Выбрать цвет','Выбрать звонок','Примерить в магазине','Покупка'],contribs:[
+        {by:'own',from:'Аня',amount:600,t:n-15*DAY},{by:'match',from:'Папа',amount:120,t:n-15*DAY},
+        {by:'rel',from:'Бабушка Валя',amount:300,t:n-9*DAY,note:'Чтобы каталась летом'},
+        {by:'own',from:'Аня',amount:300,t:n-4*DAY},{by:'match',from:'Папа',amount:60,t:n-4*DAY}]}
+    },
+    streak:{misha:{days:9,freezes:2},anya:{days:4,freezes:1}},
+    duties:[
+      {id:'d1',kid:'misha',title:'Застелить кровать',done:true},{id:'d2',kid:'misha',title:'Убрать посуду за собой',done:false},{id:'d3',kid:'misha',title:'Собрать портфель',done:false},
+      {id:'d4',kid:'anya',title:'Застелить кровать',done:true},{id:'d5',kid:'anya',title:'Убрать игрушки',done:true},{id:'d6',kid:'anya',title:'Почистить зубы без напоминаний',done:false}],
+    tasks:[
+      {id:'t3',title:'Помыть посуду после ужина',min:15,pts:30,kid:null,status:'review',by:'misha',t:n-2*H},
+      {id:'t4',title:'Полить цветы',min:5,pts:10,kid:'anya',status:'review',by:'anya',t:n-1*H,repeat:'раз в 3 дня'},
+      {id:'t1',title:'Пропылесосить гостиную',min:20,pts:40,kid:null,status:'open'},
+      {id:'t2',title:'Вынести мусор',min:5,pts:10,kid:null,rotation:['misha','anya'],turn:1,status:'open',repeat:'каждый день'},
+      {id:'t5',title:'Разобрать балкон',min:60,pts:120,kid:null,status:'open',week:true},
+      {id:'t6',title:'Погулять с собакой',min:30,pts:50,kid:'misha',status:'open',trusted:true,repeat:'каждый день'},
+      {id:'t7',title:'Сложить своё бельё',min:10,pts:20,kid:'anya',status:'open'}],
+    proposals:[
+      {id:'p1',kid:'misha',kind:'task',title:'Помыть машину вместе с папой',min:60,status:'open',rounds:[
+        {by:'kid',pts:150,note:'Это целый час работы'},{by:'parent',pts:100,note:'Давай 100, я помогаю'},{by:'kid',pts:120,note:'120, и я ещё протру салон'}]},
+      {id:'p2',kid:'anya',kind:'reward',title:'Ночёвка у подруги в субботу',status:'open',rounds:[{by:'kid',pts:200,note:''}]}],
+    rewards:[
+      {id:'r1',title:'30 минут игр',pts:60,kind:'Экран'},
+      {id:'r2',title:'Выбрать фильм на вечер',pts:40,kind:'Семья'},
+      {id:'r3',title:'Пицца на выходных',pts:250,kind:'Еда'},
+      {id:'r4',title:'Поход в кино',pts:350,kind:'Выход'}],
+    requests:[{id:'q1',kid:'misha',type:'reward',title:'30 минут игр',pts:60,status:'pending',t:n-40*60e3}],
+    penalties:[],
+    pause:{misha:null,anya:null},
+    contract:{ver:3,penaltiesOn:false,penaltyWeekMax:30,fixHours:24,matchPct:20,rate:0,guide:2,rounds:3,trusted:true,ageNorm:10,signed:{parent:true,misha:true,anya:true}},
+    log:[
+      {id:uid(),t:n-1*DAY,kind:'task',kid:'misha',text:'Погулять с собакой',delta:50,min:30,praise:'Без напоминаний — круто!'},
+      {id:uid(),t:n-2*DAY,kind:'task',kid:'misha',text:'Пропылесосить гостиную',delta:40,min:20},
+      {id:uid(),t:n-2*DAY,kind:'reward',kid:'misha',text:'Награда: 30 минут игр',delta:-60},
+      {id:uid(),t:n-3*DAY,kind:'dream',kid:'misha',text:'В мечту (+160 от папы)',delta:-800},
+      {id:uid(),t:n-4*DAY,kind:'task',kid:'misha',text:'Разобрать обувь в прихожей',delta:50,min:25},
+      {id:uid(),t:n-1*DAY,kind:'task',kid:'anya',text:'Полить цветы',delta:10,min:5,praise:'Спасибо за помощь!'},
+      {id:uid(),t:n-3*DAY,kind:'task',kid:'anya',text:'Покормить кота',delta:10,min:5},
+      {id:uid(),t:n-4*DAY,kind:'dream',kid:'anya',text:'В мечту (+60 от папы)',delta:-300},
+      {id:uid(),t:n-5*DAY,kind:'task',kid:'anya',text:'Сложить бельё',delta:30,min:15},
+      {id:uid(),t:n-8*DAY,kind:'contract',kid:null,text:'Все подписали договор, версия 3',delta:0}]
+  };
+}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===1&&s.kids)return s}catch(e){}return null}
+let S=load()||seed();
+let UI={role:'parent',tab:'today'};
+try{Object.assign(UI,JSON.parse(localStorage.getItem(UIKEY))||{})}catch(e){}
+function persist(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem(UIKEY,JSON.stringify(UI))}catch(e){}
+  const el=$('#saved');el.textContent='Сохранено';el.classList.add('flash');clearTimeout(persist.t);persist.t=setTimeout(()=>el.classList.remove('flash'),900);
+}
+let toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
+function commit(msg){persist();render();if(msg)toast(msg)}
+
+/* ---------- Помощники ---------- */
+const kid=id=>S.kids.find(k=>k.id===id);
+const kname=id=>kid(id)?kid(id).name:'';
+const isKid=()=>UI.role!=='parent';
+const task=id=>S.tasks.find(t=>t.id===id);
+const taskValue=t=>t.week?t.pts*2:t.pts;
+const dreamSaved=k=>S.dreams[k].contribs.reduce((s,c)=>s+c.amount,0);
+const reserved=k=>S.requests.filter(r=>r.kid===k&&r.status==='pending').reduce((s,r)=>s+r.pts,0);
+const free=k=>Math.max(0,S.wallet[k]-reserved(k));
+const turnOf=p=>p.rounds[p.rounds.length-1].by==='kid'?'parent':'kid';
+const maxLen=()=>S.contract.rounds*2-1;
+function addLog(o){S.log.unshift(Object.assign({id:uid(),t:Date.now(),delta:0},o))}
+function empty(m){return `<p class="empty">${m}</p>`}
+function paused(k){const p=S.pause[k];if(p&&p.until<Date.now()){S.pause[k]=null;return null}return p}
+function applyDue(){
+  let ch=false;
+  S.penalties.forEach(p=>{if(p.status==='pending'&&p.deadline<Date.now()){p.status='applied';const take=Math.min(p.pts,S.wallet[p.kid]);S.wallet[p.kid]-=take;addLog({kind:'penalty',kid:p.kid,text:'Штраф: '+p.reason,delta:-take});ch=true}});
+  if(ch)persist();
+}
+function visibleTasks(k){
+  return S.tasks.filter(t=>{
+    if(t.status==='done')return false;
+    if(t.by&&t.by!==k)return false;
+    if(t.rotation)return t.rotation[t.turn]===k||t.by===k;
+    return t.kid==null||t.kid===k;
+  });
+}
+function approveTask(t,praise){
+  const k=t.by,v=taskValue(t);
+  const firstToday=!S.log.some(l=>l.kind==='task'&&l.kid===k&&l.t>=sod(Date.now()));
+  S.wallet[k]+=v;
+  addLog({kind:'task',kid:k,text:t.title,delta:v,min:t.min,praise:praise||''});
+  if(firstToday)S.streak[k].days++;
+  if(t.repeat){t.status='open';t.by=null;t.note='';if(t.rotation)t.turn=(t.turn+1)%t.rotation.length}
+  else t.status='done';
+}
+function ring(p,size){
+  const r=60,c=2*Math.PI*r,off=c*(1-Math.max(0,Math.min(1,p)));
+  return `<svg viewBox="0 0 148 148" width="${size}" height="${size}" aria-hidden="true"><circle cx="74" cy="74" r="${r}" class="ring-bg"/><circle cx="74" cy="74" r="${r}" class="ring-fg" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 74 74)"/></svg>`;
+}
+function pace(k){
+  const d=S.dreams[k],left=Math.max(0,d.price-dreamSaved(k));
+  if(!left)return 'Цель собрана! Договоритесь о дне покупки.';
+  const wk=d.contribs.filter(c=>c.by==='own'&&c.t>Date.now()-28*DAY).reduce((s,c)=>s+c.amount,0)/4;
+  if(!wk)return `Осталось ${pts(left)}. Сделай первый взнос, и мы посчитаем срок.`;
+  const weeks=Math.ceil(left/(wk*(1+S.contract.matchPct/100)));
+  return `Осталось ${pts(left)}. В таком темпе это примерно ${weeks} ${pl(weeks,'неделя','недели','недель')}, около ${dstr(Date.now()+weeks*7*DAY)}.`;
+}
+function split(k){
+  const c=S.dreams[k].contribs,sum=t=>c.filter(x=>x.by===t).reduce((s,x)=>s+x.amount,0);
+  const own=sum('own'),m=sum('match'),r=sum('rel'),tot=Math.max(1,own+m+r),price=S.dreams[k].price;
+  const w=v=>(v/Math.max(price,tot)*100).toFixed(2)+'%';
+  return `<div class="split" role="img" aria-label="Свои ${fmt(own)}, от папы ${fmt(m)}, от родственников ${fmt(r)}"><i class="c-own" style="width:${w(own)}"></i><i class="c-match" style="width:${w(m)}"></i><i class="c-rel" style="width:${w(r)}"></i></div>
+  <div class="legend"><span><i class="c-own"></i>свои: ${fmt(own)}</span><span><i class="c-match"></i>доплата папы: ${fmt(m)}</span><span><i class="c-rel"></i>родственники: ${fmt(r)}</span></div>`;
+}
+function taskRow(t,action,showKid){
+  const tags=[
+    t.week?'<span class="pill hot">задание недели ×2</span>':'',
+    t.rotation?`<span class="pill">по очереди · сейчас ${esc(kname(t.rotation[t.turn]))}</span>`:'',
+    t.kid&&showKid?`<span class="pill">для: ${esc(kname(t.kid))}</span>`:'',
+    t.repeat?`<span class="pill">${esc(t.repeat)}</span>`:'',
+    t.trusted&&S.contract.trusted?'<span class="pill ok">без проверки</span>':'',
+    t.note?`<span class="pill warn">${esc(t.note)}</span>`:''].join('');
+  const meta=`≈${t.min} мин`+(showKid&&t.by?' · делает '+esc(kname(t.by)):'');
+  return `<div class="task"><div class="task-main"><div class="task-title">${esc(t.title)}</div><div class="task-meta">${meta}</div>${tags?`<div class="tags">${tags}</div>`:''}</div><div class="task-side"><div class="task-pts num">+${fmt(taskValue(t))}</div>${action||''}</div></div>`;
+}
+function proposalCard(p,viewer){
+  const turn=turnOf(p),last=p.rounds[p.rounds.length-1];
+  const who=r=>r.by==='kid'?kname(p.kid):S.parent;
+  const thread=p.rounds.map(r=>`<li class="by-${r.by}"><span class="who">${esc(who(r))}</span><b class="num">${pts(r.pts)}</b>${r.note?' — '+esc(r.note):''}</li>`).join('');
+  let foot='';
+  if(p.status==='agreed')foot=`<p class="deal-status ok">Договорились: ${pts(p.final)}. ${p.kind==='task'?'Задание добавлено.':'Награда добавлена.'}</p>`;
+  else if(p.status==='declined')foot=`<p class="deal-status no">Не договорились${p.reason?': '+esc(p.reason):''}</p>`;
+  else if(viewer===turn){
+    const can=p.rounds.length<maxLen();
+    foot=`<div class="row"><button class="btn sm primary" data-act="pAccept" data-id="${p.id}">Согласен на ${fmt(last.pts)}</button>${can?`<button class="btn sm" data-act="pCounter" data-id="${p.id}">Своя цена</button>`:''}<button class="btn sm ghost" data-act="pDecline" data-id="${p.id}">${viewer==='kid'?'Передумал':'Отказать'}</button></div>
+    ${!can&&viewer==='parent'?'<p class="hint">Встречных предложений больше нет: по договору последнее слово за родителем.</p>':''}`;
+  } else foot=`<p class="hint">Ждём ответа: ${turn==='parent'?esc(S.parent):esc(kname(p.kid))}</p>`;
+  const step=Math.ceil(p.rounds.length/2);
+  return `<div class="deal"><div class="deal-head"><b>${p.kind==='task'?'Задание':'Награда'}: ${esc(p.title)}</b><span class="pill">${esc(kname(p.kid))} · ход ${p.rounds.length} из ${maxLen()}</span></div><ul class="thread">${thread}</ul>${foot}</div>`;
+}
+function pauseBanner(k){const p=paused(k);if(!p)return '';return `<div class="banner pause"><span><b>Пауза: ${esc(p.reason)}</b> до ${dstr(p.until)}. Серия заморожена, задания подождут, штрафов нет.</span></div>`}
+function penaltyBanner(k){
+  return S.penalties.filter(p=>p.kid===k&&p.status==='pending').map(p=>`<div class="banner bad"><span>${esc(S.parent)} записал: «${esc(p.reason)}», −${fmt(p.pts)}. Исправь до ${tstr(p.deadline)}, и штраф отменят. Мечту штраф не трогает.</span></div>`).join('');
+}
+function signBanner(k){
+  if(S.contract.signed[k])return '';
+  return `<div class="banner gold"><span>Договор изменился (версия ${S.contract.ver}). Прочитай и подпиши.</span><button class="btn sm" data-act="tab" data-tab="contract">Открыть</button></div>`;
+}
+function lastPraise(k){const l=S.log.find(x=>x.kid===k&&x.praise);if(!l)return '';return `<div class="praise"><span class="who">${esc(S.parent)} · ${esc(l.text)} · ${ago(l.t)}</span><q>${esc(l.praise)}</q></div>`}
+
+/* ---------- Экраны ребёнка ---------- */
+const KV={};
+KV.dream=k=>{
+  const d=S.dreams[k],saved=dreamSaved(k),p=saved/d.price,st=S.streak[k],pz=paused(k);
+  const steps=d.steps.map((s,i)=>{const at=(i+1)/d.steps.length;return `<li class="${p>=at?'done':''}"><span>${esc(s)}</span><span class="pct">${Math.round(at*100)}%</span></li>`}).join('');
+  const dots=Array.from({length:7},(_,i)=>`<i class="${pz&&i>=6?'frz':i<Math.min(7,st.days)?'on':''}"></i>`).join('');
+  const contribs=d.contribs.filter(c=>c.by!=='match').slice(-4).reverse().map(c=>`<li><span>${esc(c.from)}${c.note?` <span class="d">· ${esc(c.note)}</span>`:''}<br><span class="d">${ago(c.t)}</span></span><span class="plus">+${fmt(c.amount)}</span></li>`).join('');
+  return `${signBanner(k)}${pauseBanner(k)}${penaltyBanner(k)}
+  <section class="hero">
+    <div class="ringbox">${ring(p,148)}<div class="ring-num"><b class="num">${Math.floor(p*100)}%</b><span>собрано</span></div></div>
+    <div class="txt"><p class="eyebrow">Моя мечта</p><h1>${esc(d.title)}</h1><p class="big">${fmt(saved)} <span>из ${pts(d.price)}</span></p><p class="small muted">${pace(k)}</p></div>
+  </section>
+  <section class="block"><div class="wallet"><div><p class="eyebrow">Кошелёк</p><p class="bal">${pts(S.wallet[k])}</p>${reserved(k)?`<p class="hint">${pts(reserved(k))} ждут решения по наградам</p>`:''}</div>
+    <button class="btn gold" data-act="toDream" ${free(k)?'':'disabled'}>Положить в мечту</button></div>
+    <p class="hint">Папа добавляет +${S.contract.matchPct}% к каждому твоему взносу. Баллы в мечте никто не заберёт и не оштрафует.</p></section>
+  ${lastPraise(k)}
+  <section class="block"><h2>Этапы</h2><ul class="steps">${steps}</ul></section>
+  <section class="block"><div class="block-head"><h2>Серия: ${st.days} ${pl(st.days,'день','дня','дней')} подряд</h2><span class="pill wait">заморозок: ${st.freezes}</span></div><div class="streak" aria-hidden="true">${dots}</div>
+    <p class="hint">Пропустил день? Серию спасёт заморозка. В болезнь и на каникулах серия ставится на паузу сама.</p></section>
+  <section class="block"><h2>Кто копит вместе со мной</h2>${split(k)}<ul class="list">${contribs}</ul></section>`;
+};
+KV.tasks=k=>{
+  const mine=visibleTasks(k),duties=S.duties.filter(d=>d.kid===k),dn=duties.filter(d=>d.done).length;
+  const taken=mine.filter(t=>t.status==='taken'),review=mine.filter(t=>t.status==='review'),open=mine.filter(t=>t.status==='open');
+  const props=S.proposals.filter(p=>p.kid===k).slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)).slice(0,4);
+  return `${signBanner(k)}${pauseBanner(k)}${penaltyBanner(k)}<h1 class="screen-title">Задания</h1>
+  <section class="block"><div class="block-head"><h2>Мои обязанности</h2><span class="note small">без баллов: это дела каждого в семье</span></div>
+    <ul class="duties">${duties.map(d=>`<li><button class="duty ${d.done?'on':''}" data-act="duty" data-id="${d.id}" aria-pressed="${d.done}"><span class="tick" aria-hidden="true"></span>${esc(d.title)}</button></li>`).join('')}</ul>
+    <p class="hint">${dn} из ${duties.length} сегодня</p></section>
+  ${taken.length?`<section class="block"><h2>Делаю сейчас</h2>${taken.map(t=>taskRow(t,`<button class="btn sm primary" data-act="done" data-id="${t.id}">Готово</button>`)).join('')}</section>`:''}
+  ${review.length?`<section class="block"><h2>Ждут проверки</h2>${review.map(t=>taskRow(t,'<span class="pill wait">у папы</span>')).join('')}</section>`:''}
+  <section class="block"><h2>Можно взять</h2>${open.map(t=>taskRow(t,`<button class="btn sm" data-act="take" data-id="${t.id}">Беру</button>`)).join('')||empty('Свободных заданий нет. Предложи своё!')}</section>
+  <section class="block"><div class="block-head"><h2>Мои предложения</h2><button class="btn sm" data-act="propose" data-kind="task">Предложить задание</button></div>
+    ${props.map(p=>proposalCard(p,'kid')).join('')||empty('Придумай, чем ещё можешь помочь, и назови свою цену.')}</section>`;
+};
+KV.rewards=k=>{
+  const f=free(k),mineReq=S.requests.filter(r=>r.kid===k).slice(-4).reverse();
+  const list=S.rewards.filter(r=>!r.kid||r.kid===k).map(r=>{const enough=f>=r.pts;return `<div class="task"><div class="task-main"><div class="task-title">${esc(r.title)}</div><div class="tags"><span class="pill">${esc(r.kind)}</span>${r.kid?'<span class="pill hot">договорились</span>':''}</div></div><div class="task-side"><div class="task-pts num">${fmt(r.pts)}</div><button class="btn sm" data-act="reqReward" data-id="${r.id}" ${enough?'':'disabled'}>${enough?'Попросить':'ещё '+fmt(r.pts-f)}</button></div></div>`}).join('');
+  const st={pending:'<span class="pill wait">ждёт папу</span>',done:'<span class="pill ok">получено</span>',declined:'<span class="pill warn">отказ, баллы вернулись</span>'};
+  return `${signBanner(k)}<h1 class="screen-title">Награды</h1>
+  <section class="block"><div class="wallet"><div><p class="eyebrow">Можно потратить</p><p class="bal">${pts(f)}</p></div>
+  ${S.contract.rate?`<button class="btn" data-act="cash" ${f?'':'disabled'}>Обменять на деньги</button>`:''}</div>
+  ${S.contract.rate?`<p class="hint">По договору 1 балл = ${S.contract.rate} ₽. Папа переведёт сам, через любой банк или наличными.</p>`:''}</section>
+  <section class="block"><div class="block-head"><h2>Что можно получить</h2><button class="btn sm" data-act="propose" data-kind="reward">Предложить награду</button></div>${list}</section>
+  ${mineReq.length?`<section class="block"><h2>Мои просьбы</h2><ul class="list">${mineReq.map(r=>`<li><span>${esc(r.title)}<br><span class="d">${ago(r.t)}</span></span><span>${st[r.status]}</span></li>`).join('')}</ul></section>`:''}`;
+};
+KV.contract=k=>contractView(k);
+
+/* ---------- Экраны родителя ---------- */
+const PV={};
+const PRAISE=['Спасибо за помощь!','Сделано на отлично','Без напоминаний — круто!'];
+PV.today=()=>{
+  const review=S.tasks.filter(t=>t.status==='review');
+  const props=S.proposals.filter(p=>p.status==='open'&&turnOf(p)==='parent');
+  const waitKid=S.proposals.filter(p=>p.status==='open'&&turnOf(p)==='kid');
+  const reqs=S.requests.filter(r=>r.status==='pending');
+  const pens=S.penalties.filter(p=>p.status==='pending');
+  const wk=Date.now()-7*DAY;
+  const doneWk=S.log.filter(l=>l.kind==='task'&&l.t>wk);
+  const earned=doneWk.reduce((s,l)=>s+l.delta,0);
+  const saved=S.kids.reduce((s,k)=>s+S.dreams[k.id].contribs.filter(c=>c.by==='own'&&c.t>wk).reduce((a,c)=>a+c.amount,0),0);
+  const pausedKids=S.kids.filter(k=>paused(k.id));
+  return `<h1 class="screen-title">Сегодня</h1>
+  <div class="stats"><div class="stat"><b>${review.length}</b><span>проверить</span></div><div class="stat"><b>${props.length}</b><span>предложений</span></div><div class="stat"><b>${reqs.length}</b><span>просьб о наградах</span></div></div>
+  ${pausedKids.map(k=>`<div class="banner pause"><span><b>${esc(k.name)}: пауза (${esc(S.pause[k.id].reason)})</b> до ${dstr(S.pause[k.id].until)}</span><button class="btn sm" data-act="unpause" data-kid="${k.id}">Снять паузу</button></div>`).join('')}
+  <section class="block"><div class="block-head"><h2>Проверить</h2>${review.length>1?'<button class="btn sm primary" data-act="approveAll">Принять все</button>':''}</div>
+  ${review.map(t=>`<div class="check">${taskRow(t,'',true)}<div class="check-acts"><button class="btn sm primary" data-act="approve" data-id="${t.id}">Принять</button>${PRAISE.map(p=>`<button class="chip" data-act="approve" data-id="${t.id}" data-praise="${esc(p)}">${esc(p)}</button>`).join('')}<button class="btn sm ghost" data-act="ret" data-id="${t.id}">Вернуть</button></div></div>`).join('')||empty('Всё проверено.')}
+  </section>
+  <section class="block"><h2>Договориться о цене</h2>${props.map(p=>proposalCard(p,'parent')).join('')||empty('Новых предложений от детей нет.')}${waitKid.length?`<p class="hint">Ждут ответа детей: ${waitKid.map(p=>esc(p.title)).join(', ')}</p>`:''}</section>
+  <section class="block"><h2>Просьбы о наградах</h2>
+  ${reqs.length?`<ul class="list">${reqs.map(r=>`<li><span><b>${esc(kname(r.kid))}</b>: ${esc(r.title)}${r.type==='cash'?` <span class="pill hot">перевести ${fmt(r.rub)} ₽</span>`:''}<br><span class="d">${fmt(r.pts)} баллов · ${ago(r.t)}</span></span><span class="row"><button class="btn sm primary" data-act="reqOk" data-id="${r.id}">${r.type==='cash'?'Перевёл':'Да'}</button><button class="btn sm ghost" data-act="reqNo" data-id="${r.id}">Нет</button></span></li>`).join('')}</ul>`:empty('Просьб нет.')}
+  </section>
+  ${S.contract.penaltiesOn?`<section class="block"><div class="block-head"><h2>Штрафы</h2><button class="btn sm" data-act="penalty">Записать нарушение</button></div>
+    ${pens.map(p=>`<div class="banner warn"><span><b>${esc(kname(p.kid))}</b>: «${esc(p.reason)}», −${fmt(p.pts)}. Спишется ${tstr(p.deadline)}, если не исправит.</span><button class="btn sm" data-act="penCancel" data-id="${p.id}">Исправил, отменить</button></div>`).join('')||empty('Нарушений нет.')}
+    <p class="hint">Не больше ${pts(S.contract.penaltyWeekMax)} в неделю на ребёнка, только из кошелька.</p></section>`:''}
+  <section class="block"><h2>Нагрузка за неделю</h2>${fairness()}</section>
+  <section class="block"><h2>Итог недели</h2><p>Сделано ${doneWk.length} ${pl(doneWk.length,'задание','задания','заданий')}, заработано ${pts(earned)}, отложено в мечты ${pts(saved)}.</p><p class="hint">В настоящем приложении такой итог приходит в воскресенье всей семье.</p></section>`;
+};
+function fairness(){
+  const wk=Date.now()-7*DAY;
+  const rows=S.kids.map(k=>{const m=S.log.filter(l=>l.kind==='task'&&l.kid===k.id&&l.t>wk).reduce((s,l)=>s+(l.min||0),0);const norm=k.age*S.contract.ageNorm;return {k,m,norm,r:m/norm}});
+  const low=rows.slice().sort((a,b)=>a.r-b.r)[0],high=rows.slice().sort((a,b)=>b.r-a.r)[0];
+  let tip='';
+  if(high.r>1)tip=`${esc(high.k.name)} делает больше нормы. Стоит это отметить.`;
+  else if(rows.length>1&&high.r-low.r>0.25)tip=`${esc(low.k.name)} сделал(а) меньше всех относительно нормы. Можно предложить задание.`;
+  return `<div class="bars">${rows.map(x=>`<div class="bar-row"><div class="bar-top"><span>${esc(x.k.name)} · ${x.k.age} лет</span><span class="num muted">${x.m} из ${x.norm} мин</span></div><div class="bar"><i class="${x.r>1?'over':''}" style="width:${Math.min(100,x.r*100).toFixed(1)}%"></i></div></div>`).join('')}</div>
+  ${tip?`<p class="small">${tip}</p>`:''}<p class="hint">Посильная норма: ${S.contract.ageNorm} минут в неделю на каждый год возраста. Норму меняют в договоре. Неприятные дела идут по очереди.</p>`;
+}
+PV.tasks=()=>{
+  const act=S.tasks.filter(t=>t.status!=='done');
+  const del=t=>`<button class="btn sm ghost" data-act="delTask" data-id="${t.id}" aria-label="Удалить задание ${esc(t.title)}">Удалить</button>`;
+  return `<h1 class="screen-title">Задания</h1>
+  <section class="block"><div class="block-head"><h2>Задания за баллы</h2><button class="btn sm primary" data-act="newTask">Новое задание</button></div>
+  ${act.map(t=>taskRow(t,(t.status==='review'?'<span class="pill wait">ждёт проверки</span>':t.status==='taken'?'<span class="pill">в работе</span>':'')+del(t),true)).join('')||empty('Заданий пока нет.')}
+  <p class="hint">Цена по договору: около ${S.contract.guide} ${pl(S.contract.guide,'балла','баллов','баллов')} за минуту работы. Дети могут предложить своё задание и свою цену.</p></section>
+  ${S.kids.map(k=>`<section class="block"><div class="block-head"><h2>Обязанности: ${esc(k.name)}</h2><button class="btn sm" data-act="addDuty" data-kid="${k.id}">Добавить</button></div>
+    <ul class="list">${S.duties.filter(d=>d.kid===k.id).map(d=>`<li><span>${esc(d.title)}</span><span class="row">${d.done?'<span class="pill ok">сделано</span>':'<span class="pill">сегодня</span>'}<button class="btn sm ghost" data-act="delDuty" data-id="${d.id}" aria-label="Убрать обязанность">Убрать</button></span></li>`).join('')}</ul>
+    <p class="hint">Обязанности не оплачиваются: так ребёнок не начнёт спрашивать «а сколько дадут?» за всё подряд.</p></section>`).join('')}`;
+};
+PV.dreams=()=>S.kids.map(k=>{
+  const d=S.dreams[k.id],saved=dreamSaved(k.id),p=saved/d.price;
+  const rel=d.contribs.filter(c=>c.by==='rel').slice(-3).reverse();
+  return `<section class="block"><div class="kidcard"><div class="ringbox">${ring(p,96)}<div class="ring-num"><b class="num">${Math.floor(p*100)}%</b></div></div>
+  <div style="min-width:0"><p class="eyebrow">${esc(k.name)}</p><h2 style="font-size:18px">${esc(d.title)}</h2><p class="num">${fmt(saved)} из ${pts(d.price)}</p><p class="hint">${pace(k.id)}</p></div></div>
+  ${split(k.id)}
+  ${rel.length?`<ul class="list">${rel.map(c=>`<li><span>${esc(c.from)}${c.note?` <span class="d">· ${esc(c.note)}</span>`:''}<br><span class="d">${ago(c.t)}</span></span><span class="plus">+${fmt(c.amount)}</span></li>`).join('')}</ul>`:''}
+  <div class="row"><button class="btn sm primary" data-act="relContrib" data-kid="${k.id}">Взнос родственника</button><button class="btn sm" data-act="copyLink" data-kid="${k.id}">Ссылка для родственников</button><button class="btn sm ghost" data-act="editDream" data-kid="${k.id}">Изменить мечту</button></div>
+  </section>`}).join('')+`<p class="hint">Цена мечты в баллах — договорённость семьи, а не рубли. Покупку оплачивает родитель, когда мечта собрана.</p>`;
+PV.contract=()=>contractView('parent');
+
+/* ---------- Договор ---------- */
+function clauses(){
+  const c=S.contract;
+  const L=[
+    `Обязанности члена семьи (кровать, посуда за собой, портфель) выполняются без баллов. Баллы даются за дополнительную помощь.`,
+    `Цена задания — около ${c.guide} ${pl(c.guide,'балла','баллов','баллов')} за минуту работы. Ребёнок может предложить своё задание и свою цену. Торг идёт до ${c.rounds} предложений от ребёнка, последнее слово за родителем.`,
+    `Цены и правила меняются только новой версией договора, которую подписывают все. Задним числом ничего не меняется. История баллов видна всем.`,
+    `Мечта: цена в баллах согласована вместе. Родитель добавляет ${c.matchPct}% к каждому взносу ребёнка. Родственники могут дарить баллы на мечту. Баллы в мечте нельзя забрать или оштрафовать.`,
+    c.penaltiesOn?`Штрафы включены: не больше ${pts(c.penaltyWeekMax)} в неделю, только из кошелька. После записи есть ${c.fixHours} ${pl(c.fixHours,'час','часа','часов')}, чтобы исправить, тогда штраф отменяется. Баланс не уходит ниже нуля.`:`Штрафов нет. Если что-то не сделано, это обсуждаем, а баллы не списываем.`,
+    `Пауза: в болезнь, на каникулах и в поездках задания ждут, серия не сгорает. Пропущенное дело переносится без наказания.`,
+    c.trusted?`Повседневные доверенные дела (отмечены «без проверки») засчитываются сразу. Остальные родитель проверяет в течение дня.`:`Все задания проверяет родитель в течение дня.`,
+    c.rate?`Баллы из кошелька можно обменять на деньги: 1 балл = ${c.rate} ₽. Родитель переводит сам через любой банк или наличными.`:`Баллы на деньги не меняются. Только на награды и мечту.`,
+    `В приложении хранятся только имена и возраст детей. Фамилий, фото и адресов нет. Согласие на данные ребёнка даёт родитель.`
+  ];
+  return L.map(x=>`<li>${x}</li>`).join('');
+}
+function contractView(viewer){
+  const c=S.contract,all=['parent',...S.kids.map(k=>k.id)].every(w=>c.signed[w]);
+  const signs=[{id:'parent',name:S.parent},...S.kids.map(k=>({id:k.id,name:k.name}))].map(s=>`<div class="sign"><span class="hand">${c.signed[s.id]?esc(s.name):''}</span><span class="who">${esc(s.name)}${!c.signed[s.id]?(viewer===s.id?` · <button class="btn sm gold" data-act="sign" data-who="${s.id}">Подписать</button>`:' · ещё не подписал(а)'):''}</span></div>`).join('');
+  const hist=S.log.filter(l=>viewer==='parent'||l.kid===viewer||l.kid==null).slice(0,12);
+  const hl=hist.map(l=>`<li><span>${l.kid?`<b>${esc(kname(l.kid))}</b>: `:''}${esc(l.text)}<br><span class="d">${ago(l.t)}${l.praise?' · «'+esc(l.praise)+'»':''}</span></span>${l.delta?`<span class="${l.delta>0?'plus':'minus'}">${l.delta>0?'+':'−'}${fmt(Math.abs(l.delta))}</span>`:''}</li>`).join('');
+  const settings=viewer==='parent'?`<section class="block"><h2>Правила семьи</h2>
+    ${setNum('matchPct','Доплата родителя к мечте, %',0,100,'Сколько процентов вы добавляете к каждому взносу ребёнка в мечту.')}
+    ${setNum('guide','Баллов за минуту работы',1,10,'Подсказка цены для новых заданий.')}
+    ${setNum('rounds','Предложений в торге от ребёнка',1,5,'После них последнее слово за вами.')}
+    ${setNum('ageNorm','Норма: минут в неделю на год возраста',0,60,'Для честного сравнения нагрузки детей.')}
+    ${setBool('trusted','Доверенные дела без проверки','Меньше работы для вас: такие дела засчитываются сразу.')}
+    ${setBool('penaltiesOn','Штрафы','По умолчанию выключены: исследования показывают, что штрафы мотивацию не повышают.')}
+    ${c.penaltiesOn?setNum('penaltyWeekMax','Максимум штрафов в неделю, баллов',0,500,'Только из кошелька. Мечту штрафы не трогают.')+setNum('fixHours','Часов, чтобы исправить',1,72,'Исправил — штраф отменяется.'):''}
+    ${setNum('rate','Курс: рублей за 1 балл (0 — без обмена)',0,10,'Обмен на деньги по желанию. Деньги вы переводите сами, в любом банке.')}
+    <p class="hint">Любое изменение создаёт новую версию договора. Она вступает в силу, когда дети её подпишут.</p></section>
+    <section class="block"><h2>Пауза</h2><p class="small">Болезнь, каникулы или поездка: задания ждут, серия не сгорает.</p><div class="row">${S.kids.map(k=>paused(k.id)?`<button class="btn sm" data-act="unpause" data-kid="${k.id}">Снять паузу: ${esc(k.name)}</button>`:`<button class="btn sm" data-act="pause" data-kid="${k.id}">Пауза: ${esc(k.name)}</button>`).join('')}</div></section>
+    <section class="block"><h2>Пример семьи</h2><p class="small">Все данные здесь — пример. Они хранятся только в этом браузере.</p><div class="row"><button class="btn sm ghost" data-act="reset">Вернуть пример к началу</button></div></section>`:'';
+  return `<h1 class="screen-title">Договор</h1>
+  <section class="paper"><span class="stamp ${all?'':'no'}">${all?'ДЕЙСТВУЕТ':'ЖДЁТ ПОДПИСЕЙ'}</span><div><h2>Семейный договор</h2><p class="ver">Версия ${c.ver}</p></div><ol class="clauses">${clauses()}</ol><div class="signs">${signs}</div></section>
+  ${settings}
+  <section class="block"><h2>История</h2><ul class="list">${hl}</ul></section>`;
+}
+function setNum(key,label,min,max,hint){return `<div class="setting"><label for="c-${key}">${label}</label><input id="c-${key}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${S.contract[key]}" data-set="${key}" data-min="${min}" data-max="${max}"><span class="hint">${hint}</span></div>`}
+function setBool(key,label,hint){return `<div class="setting"><label for="c-${key}">${label}</label><input id="c-${key}" class="switch" type="checkbox" ${S.contract[key]?'checked':''} data-set="${key}"><span class="hint">${hint}</span></div>`}
+
+/* ---------- Проблемы и решения ---------- */
+const PROBLEMS=[
+ {id:'bank',p:'Банки уже бесплатно платят детям за задания',src:'СберKids (более 6 млн скачиваний в RuStore) и Т-Банк «Джуниор», 2026',s:'Не спорим с банками за деньги. Ладно — это договор о правилах и мечте, и он работает с любым банком. Обмен баллов на деньги включается по желанию, родитель переводит сам.',role:'parent',tab:'contract'},
+ {id:'bore',p:'Детям интересно «день, потом скучно»',src:'отзывы детей о Chorsee в App Store, 2026',s:'Большая мечта с кольцом прогресса и этапами, серия дней с заморозками, задание недели за двойные баллы. Ребёнок сам выбирает задания и предлагает свои.',role:'misha',tab:'dream'},
+ {id:'over',p:'Награда за то, что и так нужно или интересно, убивает интерес',src:'Deci, Koestner, Ryan, 1999',s:'Обязанности члена семьи идут без баллов, баллы только за дополнительную помощь. К каждой проверке родитель добавляет похвалу словами одним касанием.',role:'misha',tab:'tasks'},
+ {id:'pen',p:'Штрафы не помогают и могут навредить',src:'Gneezy & Rustichini, опыт с детским садом',s:'Штрафы выключены по умолчанию. Если семья их включает: потолок в неделю, только из кошелька, мечту не трогают, есть время исправить, ниже нуля нельзя.',role:'parent',tab:'contract'},
+ {id:'burn',p:'Пропущенные задания «сгорают», родитель всё восстанавливает вручную',src:'отзывы о Homey в App Store, 2025–2026',s:'Пауза на болезнь и каникулы замораживает серию и задания. Невыполненное дело переносится без наказания.',role:'parent',tab:'contract'},
+ {id:'fair',p:'Задания между детьми делятся нечестно',src:'отзывы о семейных приложениях, 2026',s:'Нагрузка каждого ребёнка за неделю с поправкой на возраст. Неприятные дела идут по очереди, а приложение показывает, чья сейчас очередь.',role:'parent',tab:'today'},
+ {id:'busy',p:'Родителю некогда проверять каждое дело',src:'жалобы на лишнюю работу для родителя в отзывах',s:'Проверка в одно касание и «Принять все». Цена подсказывается по времени работы, а доверенные повседневные дела засчитываются сразу.',role:'parent',tab:'today'},
+ {id:'deal',p:'Нигде нельзя по-настоящему договориться о цене',src:'обзор 20+ приложений: частично только у Greenlight',s:'Торг прямо в приложении: ребёнок называет цену, родитель отвечает встречной. Число ходов ограничено, последнее слово за родителем, итог записывается.',role:'parent',tab:'today'},
+ {id:'trust',p:'Родитель меняет правила задним числом, и ребёнок перестаёт верить',src:'принцип прозрачности из исследований мотивации',s:'Договор подписывают все. Любое изменение — новая версия, которая ждёт подписей детей. История всех баллов видна всем.',role:'anya',tab:'contract'},
+ {id:'rel',p:'Большую мечту никто не помогает копить вместе с родственниками',src:'ни одно из найденных приложений этого не делает, 2026',s:'Бабушки и дяди дарят баллы на мечту по ссылке, а родитель доплачивает свой процент к каждому взносу ребёнка. Видно, кто сколько вложил.',role:'parent',tab:'dreams'},
+ {id:'screen',p:'Семьи спорят о времени в телефоне',src:'Pew Research: 38% родителей и подростков, 2024',s:'Экранное время стало готовой наградой: «30 минут игр» за баллы, по правилу из договора. Спорить не о чем.',role:'misha',tab:'rewards'},
+ {id:'bugs',p:'Чаще всего плохие оценки ставят за ошибки и потерю данных',src:'отзывы о NeatKid и Homey в App Store, 2026',s:'Каждое действие сохраняется сразу (индикатор «Сохранено» в шапке). В настоящем приложении: работа без интернета, синхронизация и резервная копия.',role:null},
+ {id:'law',p:'Данные детей: нужно согласие родителя и хранение в России',src:'152-ФЗ, изменения 2025 года',s:'Храним только имя и возраст ребёнка, без фамилии, фото и адреса. Согласие даёт родитель. В настоящем приложении серверы будут в России.',role:'parent',tab:'contract'},
+ {id:'store',p:'Оплата через App Store и Google Play из России не работает, детских приложений банков нет в российском App Store',src:'состояние на октябрь 2026',s:'Начинаем с веб-приложения по ссылке, которое работает на любом телефоне, и с бота в MAX для напоминаний. Потом RuStore. Оплата через сайт (ЮKassa, СБП).',role:null},
+ {id:'ads',p:'Реклама дорогая: один платящий обходится в 3 300–30 000 ₽',src:'наша оценка по ценам установки, 2026',s:'Рост через приглашения: родственников зовут в мечту ребёнка, и они видят приложение в деле.',role:'parent',tab:'dreams'}
+];
+const WHY={'p:today':['busy','fair','deal','pen'],'p:tasks':['over','busy','deal'],'p:dreams':['rel','bank','ads'],'p:contract':['trust','pen','burn','law','bank'],
+  'k:dream':['bore','rel','burn'],'k:tasks':['over','deal','bore'],'k:rewards':['screen','bank'],'k:contract':['trust','pen','law']};
+function whyCard(x,withBtn){return `<div class="why-card"><span class="p">Проблема: ${esc(x.p)}</span><span class="src">${esc(x.src)}</span><span class="s">${esc(x.s)}</span>${withBtn&&x.role?`<div><button class="btn sm" data-act="goto" data-role="${x.role}" data-tab="${x.tab}">Показать в прототипе</button></div>`:''}</div>`}
+function whyList(){const key=(isKid()?'k:':'p:')+UI.tab;return (WHY[key]||[]).map(id=>PROBLEMS.find(p=>p.id===id)).filter(Boolean)}
+function whyAside(){
+  if(UI.tab==='solutions')return `<div class="why"><div class="why-head"><h2>Как пользоваться</h2></div><div class="why-card"><span class="s">Переключайтесь между папой и детьми вверху: это одна семья глазами разных людей. Нажмите «Показать в прототипе», чтобы перейти к нужному месту.</span></div></div>`;
+  return `<div class="why"><div class="why-head"><h2>Почему так сделано</h2><button class="btn sm ghost" data-act="solutions">Все ${PROBLEMS.length} решений</button></div>${whyList().map(x=>whyCard(x,false)).join('')}</div>`;
+}
+function whyInline(){const l=whyList();if(!l.length)return '';return `<details class="why-inline"><summary>Почему так сделано</summary>${l.map(x=>whyCard(x,false)).join('')}</details>`}
+function vSolutions(){
+  return `<h1 class="screen-title">Проблемы и решения</h1>
+  <p class="muted">Что мы нашли в исследовании и как прототип это решает. Источники и даты подробно описаны в отчёте.</p>
+  <div class="sol">${PROBLEMS.map(x=>whyCard(x,true)).join('')}</div>
+  <section class="block"><h2>Что нужно для настоящего приложения</h2><ul class="future">
+    <li><span><b>Синхронизация между телефонами.</b> Родитель входит по номеру телефона, ребёнок — по коду от родителя, без своей почты.</span></li>
+    <li><span><b>Серверы в России</b> (Yandex Cloud или VK Cloud), уведомление Роскомнадзора, отдельное согласие родителя на данные ребёнка.</span></li>
+    <li><span><b>Сначала веб-приложение</b>, которое ставится на экран телефона, и бот в MAX (и Telegram) для напоминаний. Затем Android-версия в RuStore. iPhone работает через веб-версию.</span></li>
+    <li><span><b>Уведомления</b>: «задание ждёт проверки», «папа ответил на твою цену», «до мечты 10%».</span></li>
+    <li><span><b>Работа без интернета</b> и резервная копия, чтобы ничего не терялось.</span></li>
+    <li><span><b>Без рекламы</b> в детской части. Деньги — семейный тариф через сайт (ЮKassa, СБП). Цена 149–299 ₽ в месяц — гипотеза, её нужно проверить.</span></li>
+    <li><span><b>Первая версия</b> у небольшой студии стоит 260–600 тыс. ₽ (оценки студий, 2026). Дешевле — сначала проверить этот прототип на 10–20 семьях.</span></li>
+  </ul></section>
+  <section class="block"><h2>Как понять, что идея работает</h2><ul class="future">
+    <li><span>Через 4 недели больше половины семей всё ещё отмечают задания.</span></li>
+    <li><span>Дети сами предлагают задания хотя бы раз в неделю.</span></li>
+    <li><span>Родители проверяют задания в тот же день.</span></li>
+    <li><span>Хотя бы в каждой третьей семье кто-то из родственников делает взнос в мечту.</span></li>
+  </ul></section>`;
+}
+
+/* ---------- Отрисовка ---------- */
+const TABS={parent:[['today','Сегодня'],['tasks','Задания'],['dreams','Мечты'],['contract','Договор']],kid:[['dream','Мечта'],['tasks','Задания'],['rewards','Награды'],['contract','Договор']]};
+function badge(tab){
+  if(!isKid()){if(tab==='today')return S.tasks.filter(t=>t.status==='review').length+S.proposals.filter(p=>p.status==='open'&&turnOf(p)==='parent').length+S.requests.filter(r=>r.status==='pending').length;return 0}
+  const k=UI.role;
+  if(tab==='tasks')return S.proposals.filter(p=>p.kid===k&&p.status==='open'&&turnOf(p)==='kid').length;
+  if(tab==='contract')return S.contract.signed[k]?0:1;
+  return 0;
+}
+function render(){
+  applyDue();
+  if(UI.role!=='parent'&&!kid(UI.role))UI.role='parent';
+  const tabs=TABS[isKid()?'kid':'parent'];
+  if(UI.tab!=='solutions'&&!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
+  $('#roles').innerHTML=`<span class="roles-label">Смотреть как:</span>`+[{id:'parent',name:S.parent,av:'П'},...S.kids.map(k=>({id:k.id,name:k.name+', '+k.age,av:k.name[0]}))].map(r=>`<button class="role ${r.id==='parent'?'parent':''}" role="tab" aria-selected="${UI.role===r.id}" data-act="role" data-role="${r.id}"><span class="av" aria-hidden="true">${esc(r.av)}</span>${esc(r.name)}</button>`).join('');
+  $('#screen').innerHTML=(UI.tab==='solutions'?vSolutions():(isKid()?KV:PV)[UI.tab](UI.role))+(UI.tab==='solutions'?'':whyInline());
+  $('#tabs').innerHTML=tabs.map(([id,l])=>{const b=badge(id);return `<button class="tab" role="tab" aria-selected="${UI.tab===id}" data-act="tab" data-tab="${id}">${l}${b?`<span class="badge">${b}</span>`:''}</button>`}).join('');
+  $('#why').innerHTML=whyAside();
+}
+
+/* ---------- Окно формы ---------- */
+let onSubmit=null;
+function sheet(title,body,ok,fn){$('#sheet-title').textContent=title;$('#sheet-body').innerHTML=body;$('#sheet-ok').textContent=ok;$('#sheet-err').textContent='';onSubmit=fn;$('#sheet').hidden=false;setTimeout(()=>{const f=$('#sheet-body').querySelector('input,select,textarea');if(f)f.focus()},40)}
+function closeSheet(){$('#sheet').hidden=true;onSubmit=null}
+$('#sheet-form').addEventListener('submit',e=>{e.preventDefault();if(!onSubmit)return;const f=Object.fromEntries(new FormData(e.target));const err=onSubmit(f);if(err){$('#sheet-err').textContent=err;return}closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+const fld=(id,label,input)=>`<div class="fld"><label for="${id}">${label}</label>${input}</div>`;
+const numIn=(id,name,val,min,max)=>`<input id="${id}" name="${name}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${val}">`;
+const int=v=>{const n=Math.round(Number(v));return Number.isFinite(n)?n:NaN};
+
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='f-min'){const p=$('#f-pts');if(p&&!p.dataset.touched)p.value=Math.max(1,int(t.value)||0)*S.contract.guide}
+  if(t.id==='f-pts')t.dataset.touched='1';
+  if(t.id==='f-amt'){const a=Math.max(0,int(t.value)||0),m=Math.round(a*S.contract.matchPct/100);$('#f-amt-hint').textContent=`Папа добавит +${fmt(m)}. В мечту попадёт ${pts(a+m)}.`}
+  if(t.id==='f-cash'){const a=Math.max(0,int(t.value)||0);$('#f-cash-hint').textContent=`Это ${fmt(a*S.contract.rate)} ₽.`}
+});
+document.addEventListener('change',e=>{
+  const el=e.target,key=el.dataset&&el.dataset.set;if(!key)return;
+  let v;
+  if(el.type==='checkbox')v=el.checked;
+  else{v=int(el.value);const mn=+el.dataset.min,mx=+el.dataset.max;if(!Number.isFinite(v)||v<mn||v>mx){el.value=S.contract[key];toast(`Нужно число от ${mn} до ${mx}`);return}}
+  if(S.contract[key]===v)return;
+  S.contract[key]=v;S.contract.ver++;
+  S.kids.forEach(k=>S.contract.signed[k.id]=false);
+  const label=el.closest('.setting').querySelector('label').textContent;
+  addLog({kind:'contract',kid:null,text:`${S.parent} изменил договор: «${label}» (версия ${S.contract.ver})`});
+  commit('Договор изменён. Новая версия ждёт подписей детей');
+});
+
+/* ---------- Действия ---------- */
+const ACT={
+  role:d=>{UI.role=d.role;if(UI.tab!=='solutions')UI.tab=TABS[d.role==='parent'?'parent':'kid'][0][0];commit();scrollTo(0,0)},
+  tab:d=>{UI.tab=d.tab;commit();scrollTo(0,0)},
+  solutions:()=>{UI.tab='solutions';commit();scrollTo(0,0)},
+  goto:d=>{UI.role=d.role;UI.tab=d.tab;commit();scrollTo(0,0)},
+  closeSheet,
+  duty:d=>{const x=S.duties.find(y=>y.id===d.id);x.done=!x.done;commit(x.done?'Отмечено. Спасибо!':'')},
+  take:d=>{const t=task(d.id);t.status='taken';t.by=UI.role;t.note='';commit('Задание твоё. Когда сделаешь, нажми «Готово»')},
+  done:d=>{const t=task(d.id);if(S.contract.trusted&&t.trusted){approveTask(t,'');commit('Засчитано сразу: это доверенное дело')}else{t.status='review';t.t=Date.now();commit(`Отправлено на проверку: ${S.parent}`)}},
+  approve:d=>{const t=task(d.id);const k=t.by;approveTask(t,d.praise||'');commit(`${kname(k)} получает +${fmt(taskValue(t))}`)},
+  approveAll:()=>{const r=S.tasks.filter(t=>t.status==='review');r.forEach(t=>approveTask(t,'Спасибо за помощь!'));commit(`Принято заданий: ${r.length}`)},
+  ret:d=>{const t=task(d.id);sheet('Вернуть на доработку',fld('f-note','Что поправить',`<input id="f-note" name="note" maxlength="80" placeholder="Например: под диваном осталась пыль">`)+'<p class="hint">Без штрафа: ребёнок просто доделает и отправит снова.</p>','Вернуть',f=>{t.status='taken';t.note=(f.note||'Нужно доделать').trim();commit('Вернули с пояснением')})},
+  propose:d=>{
+    const isT=d.kind==='task',g=S.contract.guide;
+    sheet(isT?'Предложить задание':'Предложить награду',
+      fld('f-title',isT?'Что сделаешь':'Чего хочешь',`<input id="f-title" name="title" maxlength="60" required placeholder="${isT?'Например: помою машину':'Например: поход на каток'}">`)+
+      (isT?fld('f-min','Сколько минут займёт',numIn('f-min','min',30,1,600)):'')+
+      fld('f-pts','Твоя цена в баллах',numIn('f-pts','pts',isT?30*g:150,1,10000))+
+      (isT?`<p class="hint">По договору около ${g} ${pl(g,'балла','баллов','баллов')} за минуту. Можно попросить больше и объяснить почему.</p>`:'')+
+      fld('f-note','Почему столько (по желанию)',`<input id="f-note" name="note" maxlength="80">`),
+      'Отправить',f=>{const title=(f.title||'').trim(),p=int(f.pts);if(!title)return 'Напиши, что именно.';if(!(p>=1&&p<=10000))return 'Цена: от 1 до 10 000 баллов.';
+        S.proposals.push({id:uid(),kid:UI.role,kind:d.kind,title,min:isT?Math.max(1,int(f.min)||30):0,status:'open',rounds:[{by:'kid',pts:p,note:(f.note||'').trim()}]});commit(`Отправлено. ${S.parent} ответит`)});
+  },
+  pAccept:d=>{
+    const p=S.proposals.find(x=>x.id===d.id),v=p.rounds[p.rounds.length-1].pts;p.status='agreed';p.final=v;
+    if(p.kind==='task')S.tasks.push({id:uid(),title:p.title,min:p.min||30,pts:v,kid:p.kid,status:'open'});
+    else S.rewards.push({id:uid(),title:p.title,pts:v,kind:'Договорились',kid:p.kid});
+    addLog({kind:'deal',kid:p.kid,text:`Договорились: «${p.title}» за ${pts(v)}`});
+    commit('Договорились! Записано в историю');
+  },
+  pCounter:d=>{
+    const p=S.proposals.find(x=>x.id===d.id),last=p.rounds[p.rounds.length-1].pts,by=isKid()?'kid':'parent';
+    sheet('Своя цена',`<p class="small">Сейчас на столе: ${pts(last)}.</p>`+fld('f-pts','Твоя цена',numIn('f-pts','pts',last,1,10000))+fld('f-note','Почему (по желанию)',`<input id="f-note" name="note" maxlength="80">`),'Предложить',f=>{const v=int(f.pts);if(!(v>=1&&v<=10000))return 'Цена: от 1 до 10 000 баллов.';if(v===last)return 'Это та же цена. Нажмите «Согласен» вместо этого.';p.rounds.push({by,pts:v,note:(f.note||'').trim()});commit('Встречное предложение отправлено')});
+  },
+  pDecline:d=>{
+    const p=S.proposals.find(x=>x.id===d.id);
+    if(isKid()){p.status='declined';p.reason='ребёнок передумал';commit('Предложение отозвано');return}
+    sheet('Отказать',fld('f-note','Объясните почему',`<input id="f-note" name="note" maxlength="80" placeholder="Например: машину моем в автомойке">`)+'<p class="hint">Причина видна ребёнку: отказ без объяснения ощущается как несправедливость.</p>','Отказать',f=>{const r=(f.note||'').trim();if(!r)return 'Напишите причину в двух словах.';p.status='declined';p.reason=r;commit('Ответ отправлен')});
+  },
+  reqReward:d=>{const r=S.rewards.find(x=>x.id===d.id),k=UI.role;if(free(k)<r.pts)return;S.requests.push({id:uid(),kid:k,type:'reward',title:r.title,pts:r.pts,status:'pending',t:Date.now()});commit(`Просьба отправлена. Баллы отложены, пока ${S.parent} не ответит`)},
+  cash:()=>{const k=UI.role,f=free(k);sheet('Обменять на деньги',fld('f-cash','Сколько баллов',numIn('f-cash','pts',Math.min(f,100),1,f))+`<p class="hint" id="f-cash-hint">Это ${fmt(Math.min(f,100)*S.contract.rate)} ₽.</p>`,'Попросить',x=>{const v=int(x.pts);if(!(v>=1&&v<=f))return `Можно от 1 до ${fmt(f)}.`;S.requests.push({id:uid(),kid:k,type:'cash',title:'Обмен на деньги',pts:v,rub:v*S.contract.rate,status:'pending',t:Date.now()});commit('Просьба отправлена')})},
+  reqOk:d=>{const r=S.requests.find(x=>x.id===d.id);r.status='done';S.wallet[r.kid]=Math.max(0,S.wallet[r.kid]-r.pts);addLog({kind:'reward',kid:r.kid,text:r.type==='cash'?`Обмен на ${fmt(r.rub)} ₽`:'Награда: '+r.title,delta:-r.pts});commit('Готово, баллы списаны')},
+  reqNo:d=>{const r=S.requests.find(x=>x.id===d.id);r.status='declined';commit('Отказано, баллы вернулись ребёнку')},
+  toDream:()=>{const k=UI.role,f=free(k),a0=Math.min(f,100),m0=Math.round(a0*S.contract.matchPct/100);
+    sheet('Положить в мечту',fld('f-amt','Сколько баллов',numIn('f-amt','amt',a0,1,f))+`<p class="hint" id="f-amt-hint">Папа добавит +${fmt(m0)}. В мечту попадёт ${pts(a0+m0)}.</p><p class="hint">Отложенное в мечту обратно не забирается. Так легче копить.</p>`,'Положить',x=>{const a=int(x.amt);if(!(a>=1&&a<=f))return `Можно от 1 до ${fmt(f)}.`;const m=Math.round(a*S.contract.matchPct/100),dr=S.dreams[k];
+      S.wallet[k]-=a;dr.contribs.push({by:'own',from:kname(k),amount:a,t:Date.now()});if(m)dr.contribs.push({by:'match',from:S.parent,amount:m,t:Date.now()});addLog({kind:'dream',kid:k,text:`В мечту (+${fmt(m)} от папы)`,delta:-a});commit(`+${fmt(a+m)} в мечту!`)})},
+  sign:d=>{S.contract.signed[d.who]=true;addLog({kind:'contract',kid:d.who==='parent'?null:d.who,text:`${d.who==='parent'?S.parent:kname(d.who)} подписал(а) договор, версия ${S.contract.ver}`});commit('Подписано')},
+  newTask:()=>{
+    const g=S.contract.guide,tpl=[['Пропылесосить комнату',20],['Помыть посуду',15],['Вынести мусор',5],['Погулять с собакой',30],['Помочь с покупками',40],['Протереть пыль',15]];
+    sheet('Новое задание',`<div class="row">${tpl.map(([t,m])=>`<button type="button" class="chip" data-act="tpl" data-title="${esc(t)}" data-min="${m}">${esc(t)}</button>`).join('')}</div>`+
+      fld('f-title','Что сделать',`<input id="f-title" name="title" maxlength="60" required>`)+
+      `<div class="row" style="align-items:flex-end">${fld('f-min','Минут',numIn('f-min','min',15,1,600))}${fld('f-pts','Баллов',numIn('f-pts','pts',15*g,1,10000))}</div>`+
+      fld('f-kid','Для кого',`<select id="f-kid" name="kid"><option value="">Любой ребёнок</option>${S.kids.map(k=>`<option value="${k.id}">${esc(k.name)}</option>`).join('')}<option value="@rot">По очереди</option></select>`)+
+      fld('f-rep','Повтор',`<select id="f-rep" name="repeat"><option value="">Один раз</option><option>каждый день</option><option>каждую неделю</option></select>`)+
+      `<div class="fld check"><input id="f-week" name="week" type="checkbox"><label for="f-week">Задание недели: двойные баллы</label></div>`+
+      `<div class="fld check"><input id="f-tr" name="trusted" type="checkbox"><label for="f-tr">Засчитывать без проверки</label></div>`,
+      'Добавить',f=>{const title=(f.title||'').trim(),m=int(f.min),p=int(f.pts);if(!title)return 'Напишите, что сделать.';if(!(m>=1&&m<=600))return 'Минуты: от 1 до 600.';if(!(p>=1&&p<=10000))return 'Баллы: от 1 до 10 000.';
+        const t={id:uid(),title,min:m,pts:p,kid:null,status:'open'};if(f.kid==='@rot'){t.rotation=S.kids.map(k=>k.id);t.turn=0}else if(f.kid)t.kid=f.kid;if(f.repeat)t.repeat=f.repeat;if(f.week)t.week=true;if(f.trusted)t.trusted=true;S.tasks.unshift(t);commit('Задание добавлено')});
+  },
+  tpl:d=>{$('#f-title').value=d.title;$('#f-min').value=d.min;const p=$('#f-pts');delete p.dataset.touched;p.value=d.min*S.contract.guide},
+  delTask:d=>{S.tasks=S.tasks.filter(t=>t.id!==d.id);commit('Задание удалено')},
+  addDuty:d=>sheet('Новая обязанность: '+kname(d.kid),fld('f-title','Что делать каждый день',`<input id="f-title" name="title" maxlength="60" placeholder="Например: покормить кота">`)+'<p class="hint">Обязанности без баллов. Для дополнительной помощи создайте задание.</p>','Добавить',f=>{const t=(f.title||'').trim();if(!t)return 'Напишите обязанность.';S.duties.push({id:uid(),kid:d.kid,title:t,done:false});commit('Добавлено')}),
+  delDuty:d=>{S.duties=S.duties.filter(x=>x.id!==d.id);commit('Обязанность убрана')},
+  relContrib:d=>sheet('Взнос родственника: мечта '+kname(d.kid),fld('f-from','Кто',`<input id="f-from" name="from" maxlength="40" placeholder="Например: Бабушка Валя">`)+fld('f-amt2','Сколько баллов',numIn('f-amt2','amt',300,1,100000))+fld('f-note','Пожелание (по желанию)',`<input id="f-note" name="note" maxlength="60">`)+'<p class="hint">В настоящем приложении родственник откроет ссылку и сделает взнос сам.</p>','Добавить',f=>{const who=(f.from||'').trim(),a=int(f.amt);if(!who)return 'Напишите, от кого взнос.';if(!(a>=1&&a<=100000))return 'От 1 до 100 000 баллов.';S.dreams[d.kid].contribs.push({by:'rel',from:who,amount:a,t:Date.now(),note:(f.note||'').trim()});addLog({kind:'dream',kid:d.kid,text:`${who} подарил(а) баллы на мечту`,delta:0});commit('Взнос добавлен')}),
+  copyLink:d=>{const url=`https://ladno.example/mechta/${d.kid}-${uid()}`;const done=()=>toast('Ссылка-пример скопирована. В прототипе она не открывается');
+    try{navigator.clipboard.writeText(url).then(done,()=>sheet('Ссылка для родственников',`<p class="small">Выделите и скопируйте:</p><input id="f-link" readonly value="${url}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">`,'Закрыть',()=>{}))}catch(e){toast(url)}},
+  editDream:d=>{const dr=S.dreams[d.kid];sheet('Мечта: '+kname(d.kid),fld('f-title','Мечта',`<input id="f-title" name="title" maxlength="50" value="${esc(dr.title)}">`)+fld('f-price','Цена в баллах (договорились вместе)',numIn('f-price','price',dr.price,100,1000000)),'Сохранить',f=>{const t=(f.title||'').trim(),p=int(f.price);if(!t)return 'Напишите мечту.';if(!(p>=100&&p<=1000000))return 'Цена: от 100 до 1 000 000 баллов.';dr.title=t;dr.price=p;addLog({kind:'contract',kid:d.kid,text:`Мечта: «${t}», ${pts(p)}`});commit('Сохранено')})},
+  penalty:()=>{
+    const wk=Date.now()-7*DAY,used=k=>S.penalties.filter(p=>p.kid===k&&p.status!=='cancelled'&&p.t>wk).reduce((s,p)=>s+p.pts,0);
+    sheet('Записать нарушение',fld('f-kid','Кто',`<select id="f-kid" name="kid">${S.kids.map(k=>`<option value="${k.id}">${esc(k.name)} (осталось ${S.contract.penaltyWeekMax-used(k.id)} на неделю)</option>`).join('')}</select>`)+fld('f-reason','Что случилось',`<input id="f-reason" name="reason" maxlength="60" placeholder="Например: не убрал(а) за собой посуду">`)+fld('f-pts','Баллов',numIn('f-pts','pts',10,1,S.contract.penaltyWeekMax))+`<p class="hint">Ребёнок получит ${S.contract.fixHours} ч, чтобы исправить. Тогда штраф отменяется.</p>`,'Записать',f=>{const k=f.kid,r=(f.reason||'').trim(),p=int(f.pts),left=S.contract.penaltyWeekMax-used(k);if(!r)return 'Напишите, что случилось.';if(!(p>=1))return 'Укажите баллы.';if(p>left)return `По договору на этой неделе можно не больше ${left}.`;
+      S.penalties.push({id:uid(),kid:k,reason:r,pts:p,t:Date.now(),deadline:Date.now()+S.contract.fixHours*H,status:'pending'});commit('Записано. Ребёнок видит, что нужно исправить')});
+  },
+  penCancel:d=>{const p=S.penalties.find(x=>x.id===d.id);p.status='cancelled';addLog({kind:'penalty',kid:p.kid,text:`Исправил(а): «${p.reason}», штраф отменён`});commit('Штраф отменён')},
+  pause:d=>sheet('Пауза: '+kname(d.kid),fld('f-r','Причина',`<select id="f-r" name="reason"><option>болеет</option><option>каникулы</option><option>поездка</option></select>`)+fld('f-days','На сколько дней',numIn('f-days','days',3,1,30)),'Поставить паузу',f=>{const n=int(f.days);if(!(n>=1&&n<=30))return 'От 1 до 30 дней.';S.pause[d.kid]={reason:f.reason,until:Date.now()+n*DAY};addLog({kind:'contract',kid:d.kid,text:`Пауза: ${f.reason}, ${n} ${pl(n,'день','дня','дней')}`});commit('Пауза включена, серия заморожена')}),
+  unpause:d=>{S.pause[d.kid]=null;commit('Пауза снята')},
+  reset:()=>sheet('Вернуть пример к началу?','<p class="small">Все изменения в этом браузере пропадут, и пример семьи начнётся заново.</p>','Вернуть',()=>{S=seed();UI={role:'parent',tab:'today'};commit('Пример восстановлен')})
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const fn=ACT[b.dataset.act];if(fn){e.preventDefault();fn(b.dataset,b)}});
+render();
+})();
+</script>
