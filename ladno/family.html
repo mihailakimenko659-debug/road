@@ -1,5 +1,5 @@
-<meta charset="utf-8">
-<title>Ладно</title>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>Ладно · Семья</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,7 +45,12 @@ p{margin:0}
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 .brand b{font-family:var(--f-display);font-size:20px;letter-spacing:.01em;display:block;line-height:1}
 .brand small{color:var(--muted);font-size:12px}
-@media (max-width:520px){.brand small .wide{display:none}}
+@media (max-width:520px){.brand small .wide,.top-acts .wide{display:none}}
+@media (max-width:420px){.brand small{display:none}}
+a.btn{text-decoration:none;color:inherit;display:inline-block}
+fieldset.kidset{border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px;display:grid;gap:8px;margin:0;min-width:0}
+fieldset.kidset legend{font-weight:600;font-size:13px;padding:0 4px}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
 .seal{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#2a1a00;font-family:var(--f-display);font-weight:700;font-size:18px;box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 5px #fff6;transform:rotate(-8deg)}
 .top-acts{display:flex;align-items:center;gap:8px}
 .saved{font-size:12px;color:var(--muted);transition:color .3s}
@@ -266,7 +271,7 @@ details.why-inline .why-card{border:0;padding:10px 0;border-top:1px solid var(--
   <header class="top">
     <div class="top-in">
       <div class="brand"><span class="seal" aria-hidden="true">Л</span><div><b>Ладно</b><small>семейный договор · прототип<span class="wide"> с примером семьи</span></small></div></div>
-      <div class="top-acts"><span id="saved" class="saved">Сохранено</span><button class="btn sm" data-act="solutions">Решения</button></div>
+      <div class="top-acts"><span id="saved" class="saved">Сохранено</span><button class="btn sm" data-act="solutions">Решения</button><a class="btn sm ghost" href="index.html" aria-label="Все прототипы">←<span class="wide"> Все прототипы</span></a></div>
     </div>
     <div id="roles" class="roles" role="tablist" aria-label="Чьими глазами смотреть"></div>
   </header>
@@ -374,6 +379,21 @@ let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
 function commit(msg){persist();render();if(msg)toast(msg)}
 
+function freshFamily(parent,kids){
+  const n=Date.now(),base=seed();
+  const F={v:1,demo:false,parent,kids:kids.map((k,i)=>({id:'k'+(i+1),name:k.name,age:k.age})),wallet:{},dreams:{},streak:{},duties:[],tasks:[],proposals:[],rewards:base.rewards,requests:[],penalties:[],pause:{},
+    contract:Object.assign({},base.contract,{ver:1,signed:{parent:true}}),
+    log:[{id:uid(),t:n,kind:'contract',kid:null,text:`${parent} создал(а) семью и договор, версия 1`,delta:0}]};
+  F.kids.forEach((k,i)=>{
+    F.wallet[k.id]=0;F.streak[k.id]={days:0,freezes:1};F.pause[k.id]=null;F.contract.signed[k.id]=false;
+    F.dreams[k.id]={title:kids[i].dream,price:kids[i].price,steps:['Выбрать модель','Половина пути','Последний рывок','Покупка'],contribs:[]};
+    (k.age>=10?['Застелить кровать','Убрать посуду за собой','Собрать портфель']:['Застелить кровать','Убрать игрушки','Почистить зубы без напоминаний']).forEach(t=>F.duties.push({id:uid(),kid:k.id,title:t,done:false}));
+  });
+  F.tasks=[{id:uid(),title:'Пропылесосить комнату',min:20,pts:40,kid:null,status:'open'},{id:uid(),title:'Помочь с покупками',min:40,pts:80,kid:null,status:'open'},{id:uid(),title:'Протереть пыль',min:15,pts:30,kid:null,status:'open'}];
+  if(F.kids.length>1)F.tasks.push({id:uid(),title:'Вынести мусор',min:5,pts:10,kid:null,rotation:F.kids.map(k=>k.id),turn:0,status:'open',repeat:'каждый день'});
+  return F;
+}
+
 /* ---------- Помощники ---------- */
 const kid=id=>S.kids.find(k=>k.id===id);
 const kname=id=>kid(id)?kid(id).name:'';
@@ -417,17 +437,21 @@ function ring(p,size){
 function pace(k){
   const d=S.dreams[k],left=Math.max(0,d.price-dreamSaved(k));
   if(!left)return 'Цель собрана! Договоритесь о дне покупки.';
-  const wk=d.contribs.filter(c=>c.by==='own'&&c.t>Date.now()-28*DAY).reduce((s,c)=>s+c.amount,0)/4;
+  const own=d.contribs.filter(c=>c.by==='own'&&c.t>Date.now()-28*DAY),first=own.reduce((m,c)=>Math.min(m,c.t),Date.now());
+  const wk=own.reduce((s,c)=>s+c.amount,0)/Math.min(4,Math.max(1,(Date.now()-first)/(7*DAY)));
   if(!wk)return `Осталось ${pts(left)}. Сделай первый взнос, и мы посчитаем срок.`;
   const weeks=Math.ceil(left/(wk*(1+S.contract.matchPct/100)));
-  return `Осталось ${pts(left)}. В таком темпе это примерно ${weeks} ${pl(weeks,'неделя','недели','недель')}, около ${dstr(Date.now()+weeks*7*DAY)}.`;
+  if(weeks>104)return `Осталось ${pts(left)}. В таком темпе это больше двух лет. Можно брать больше заданий или договориться о большей доплате.`;
+  const end=new Date(Date.now()+weeks*7*DAY),MP=['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
+  const when=weeks>40?`в ${MP[end.getMonth()]} ${end.getFullYear()} года`:`около ${dstr(end)}`;
+  return `Осталось ${pts(left)}. В таком темпе это примерно ${weeks} ${pl(weeks,'неделя','недели','недель')}, ${when}.`;
 }
 function split(k){
   const c=S.dreams[k].contribs,sum=t=>c.filter(x=>x.by===t).reduce((s,x)=>s+x.amount,0);
   const own=sum('own'),m=sum('match'),r=sum('rel'),tot=Math.max(1,own+m+r),price=S.dreams[k].price;
   const w=v=>(v/Math.max(price,tot)*100).toFixed(2)+'%';
-  return `<div class="split" role="img" aria-label="Свои ${fmt(own)}, от папы ${fmt(m)}, от родственников ${fmt(r)}"><i class="c-own" style="width:${w(own)}"></i><i class="c-match" style="width:${w(m)}"></i><i class="c-rel" style="width:${w(r)}"></i></div>
-  <div class="legend"><span><i class="c-own"></i>свои: ${fmt(own)}</span><span><i class="c-match"></i>доплата папы: ${fmt(m)}</span><span><i class="c-rel"></i>родственники: ${fmt(r)}</span></div>`;
+  return `<div class="split" role="img" aria-label="Свои ${fmt(own)}, от родителя ${fmt(m)}, от родственников ${fmt(r)}"><i class="c-own" style="width:${w(own)}"></i><i class="c-match" style="width:${w(m)}"></i><i class="c-rel" style="width:${w(r)}"></i></div>
+  <div class="legend"><span><i class="c-own"></i>свои: ${fmt(own)}</span><span><i class="c-match"></i>доплата родителя: ${fmt(m)}</span><span><i class="c-rel"></i>родственники: ${fmt(r)}</span></div>`;
 }
 function taskRow(t,action,showKid){
   const tags=[
@@ -479,7 +503,7 @@ KV.dream=k=>{
   </section>
   <section class="block"><div class="wallet"><div><p class="eyebrow">Кошелёк</p><p class="bal">${pts(S.wallet[k])}</p>${reserved(k)?`<p class="hint">${pts(reserved(k))} ждут решения по наградам</p>`:''}</div>
     <button class="btn gold" data-act="toDream" ${free(k)?'':'disabled'}>Положить в мечту</button></div>
-    <p class="hint">Папа добавляет +${S.contract.matchPct}% к каждому твоему взносу. Баллы в мечте никто не заберёт и не оштрафует.</p></section>
+    <p class="hint">${esc(S.parent)} добавляет +${S.contract.matchPct}% к каждому твоему взносу. Баллы в мечте никто не заберёт и не оштрафует.</p></section>
   ${lastPraise(k)}
   <section class="block"><h2>Этапы</h2><ul class="steps">${steps}</ul></section>
   <section class="block"><div class="block-head"><h2>Серия: ${st.days} ${pl(st.days,'день','дня','дней')} подряд</h2><span class="pill wait">заморозок: ${st.freezes}</span></div><div class="streak" aria-hidden="true">${dots}</div>
@@ -495,7 +519,7 @@ KV.tasks=k=>{
     <ul class="duties">${duties.map(d=>`<li><button class="duty ${d.done?'on':''}" data-act="duty" data-id="${d.id}" aria-pressed="${d.done}"><span class="tick" aria-hidden="true"></span>${esc(d.title)}</button></li>`).join('')}</ul>
     <p class="hint">${dn} из ${duties.length} сегодня</p></section>
   ${taken.length?`<section class="block"><h2>Делаю сейчас</h2>${taken.map(t=>taskRow(t,`<button class="btn sm primary" data-act="done" data-id="${t.id}">Готово</button>`)).join('')}</section>`:''}
-  ${review.length?`<section class="block"><h2>Ждут проверки</h2>${review.map(t=>taskRow(t,'<span class="pill wait">у папы</span>')).join('')}</section>`:''}
+  ${review.length?`<section class="block"><h2>Ждут проверки</h2>${review.map(t=>taskRow(t,'<span class="pill wait">на проверке</span>')).join('')}</section>`:''}
   <section class="block"><h2>Можно взять</h2>${open.map(t=>taskRow(t,`<button class="btn sm" data-act="take" data-id="${t.id}">Беру</button>`)).join('')||empty('Свободных заданий нет. Предложи своё!')}</section>
   <section class="block"><div class="block-head"><h2>Мои предложения</h2><button class="btn sm" data-act="propose" data-kind="task">Предложить задание</button></div>
     ${props.map(p=>proposalCard(p,'kid')).join('')||empty('Придумай, чем ещё можешь помочь, и назови свою цену.')}</section>`;
@@ -503,11 +527,11 @@ KV.tasks=k=>{
 KV.rewards=k=>{
   const f=free(k),mineReq=S.requests.filter(r=>r.kid===k).slice(-4).reverse();
   const list=S.rewards.filter(r=>!r.kid||r.kid===k).map(r=>{const enough=f>=r.pts;return `<div class="task"><div class="task-main"><div class="task-title">${esc(r.title)}</div><div class="tags"><span class="pill">${esc(r.kind)}</span>${r.kid?'<span class="pill hot">договорились</span>':''}</div></div><div class="task-side"><div class="task-pts num">${fmt(r.pts)}</div><button class="btn sm" data-act="reqReward" data-id="${r.id}" ${enough?'':'disabled'}>${enough?'Попросить':'ещё '+fmt(r.pts-f)}</button></div></div>`}).join('');
-  const st={pending:'<span class="pill wait">ждёт папу</span>',done:'<span class="pill ok">получено</span>',declined:'<span class="pill warn">отказ, баллы вернулись</span>'};
+  const st={pending:'<span class="pill wait">ждёт ответа</span>',done:'<span class="pill ok">получено</span>',declined:'<span class="pill warn">отказ, баллы вернулись</span>'};
   return `${signBanner(k)}<h1 class="screen-title">Награды</h1>
   <section class="block"><div class="wallet"><div><p class="eyebrow">Можно потратить</p><p class="bal">${pts(f)}</p></div>
   ${S.contract.rate?`<button class="btn" data-act="cash" ${f?'':'disabled'}>Обменять на деньги</button>`:''}</div>
-  ${S.contract.rate?`<p class="hint">По договору 1 балл = ${S.contract.rate} ₽. Папа переведёт сам, через любой банк или наличными.</p>`:''}</section>
+  ${S.contract.rate?`<p class="hint">По договору 1 балл = ${S.contract.rate} ₽. ${esc(S.parent)} переведёт сам, через любой банк или наличными.</p>`:''}</section>
   <section class="block"><div class="block-head"><h2>Что можно получить</h2><button class="btn sm" data-act="propose" data-kind="reward">Предложить награду</button></div>${list}</section>
   ${mineReq.length?`<section class="block"><h2>Мои просьбы</h2><ul class="list">${mineReq.map(r=>`<li><span>${esc(r.title)}<br><span class="d">${ago(r.t)}</span></span><span>${st[r.status]}</span></li>`).join('')}</ul></section>`:''}`;
 };
@@ -527,7 +551,7 @@ PV.today=()=>{
   const earned=doneWk.reduce((s,l)=>s+l.delta,0);
   const saved=S.kids.reduce((s,k)=>s+S.dreams[k.id].contribs.filter(c=>c.by==='own'&&c.t>wk).reduce((a,c)=>a+c.amount,0),0);
   const pausedKids=S.kids.filter(k=>paused(k.id));
-  return `<h1 class="screen-title">Сегодня</h1>
+  return `${S.demo!==false?'<div class="banner gold"><span>Это пример семьи. Создайте свою, чтобы попробовать с детьми на одном устройстве.</span><button class="btn sm" data-act="setup">Создать свою семью</button></div>':''}<h1 class="screen-title">Сегодня</h1>
   <div class="stats"><div class="stat"><b>${review.length}</b><span>проверить</span></div><div class="stat"><b>${props.length}</b><span>предложений</span></div><div class="stat"><b>${reqs.length}</b><span>просьб о наградах</span></div></div>
   ${pausedKids.map(k=>`<div class="banner pause"><span><b>${esc(k.name)}: пауза (${esc(S.pause[k.id].reason)})</b> до ${dstr(S.pause[k.id].until)}</span><button class="btn sm" data-act="unpause" data-kid="${k.id}">Снять паузу</button></div>`).join('')}
   <section class="block"><div class="block-head"><h2>Проверить</h2>${review.length>1?'<button class="btn sm primary" data-act="approveAll">Принять все</button>':''}</div>
@@ -607,7 +631,7 @@ function contractView(viewer){
     ${setNum('rate','Курс: рублей за 1 балл (0 — без обмена)',0,10,'Обмен на деньги по желанию. Деньги вы переводите сами, в любом банке.')}
     <p class="hint">Любое изменение создаёт новую версию договора. Она вступает в силу, когда дети её подпишут.</p></section>
     <section class="block"><h2>Пауза</h2><p class="small">Болезнь, каникулы или поездка: задания ждут, серия не сгорает.</p><div class="row">${S.kids.map(k=>paused(k.id)?`<button class="btn sm" data-act="unpause" data-kid="${k.id}">Снять паузу: ${esc(k.name)}</button>`:`<button class="btn sm" data-act="pause" data-kid="${k.id}">Пауза: ${esc(k.name)}</button>`).join('')}</div></section>
-    <section class="block"><h2>Пример семьи</h2><p class="small">Все данные здесь — пример. Они хранятся только в этом браузере.</p><div class="row"><button class="btn sm ghost" data-act="reset">Вернуть пример к началу</button></div></section>`:'';
+    <section class="block"><h2>${S.demo!==false?'Пример семьи':'Ваша семья'}</h2><p class="small">${S.demo!==false?'Сейчас открыт пример. Создайте свою семью: имена, возраст и мечты детей.':'Это ваша семья.'} Данные хранятся только в этом браузере.</p><div class="row"><button class="btn sm" data-act="setup">${S.demo!==false?'Создать свою семью':'Начать заново'}</button><button class="btn sm ghost" data-act="reset">Открыть пример</button></div></section>`:'';
   return `<h1 class="screen-title">Договор</h1>
   <section class="paper"><span class="stamp ${all?'':'no'}">${all?'ДЕЙСТВУЕТ':'ЖДЁТ ПОДПИСЕЙ'}</span><div><h2>Семейный договор</h2><p class="ver">Версия ${c.ver}</p></div><ol class="clauses">${clauses()}</ol><div class="signs">${signs}</div></section>
   ${settings}
@@ -639,7 +663,7 @@ const WHY={'p:today':['busy','fair','deal','pen'],'p:tasks':['over','busy','deal
 function whyCard(x,withBtn){return `<div class="why-card"><span class="p">Проблема: ${esc(x.p)}</span><span class="src">${esc(x.src)}</span><span class="s">${esc(x.s)}</span>${withBtn&&x.role?`<div><button class="btn sm" data-act="goto" data-role="${x.role}" data-tab="${x.tab}">Показать в прототипе</button></div>`:''}</div>`}
 function whyList(){const key=(isKid()?'k:':'p:')+UI.tab;return (WHY[key]||[]).map(id=>PROBLEMS.find(p=>p.id===id)).filter(Boolean)}
 function whyAside(){
-  if(UI.tab==='solutions')return `<div class="why"><div class="why-head"><h2>Как пользоваться</h2></div><div class="why-card"><span class="s">Переключайтесь между папой и детьми вверху: это одна семья глазами разных людей. Нажмите «Показать в прототипе», чтобы перейти к нужному месту.</span></div></div>`;
+  if(UI.tab==='solutions')return `<div class="why"><div class="why-head"><h2>Как пользоваться</h2></div><div class="why-card"><span class="s">Переключайтесь между родителем и детьми вверху: это одна семья глазами разных людей. Нажмите «Показать в прототипе», чтобы перейти к нужному месту.</span></div></div>`;
   return `<div class="why"><div class="why-head"><h2>Почему так сделано</h2><button class="btn sm ghost" data-act="solutions">Все ${PROBLEMS.length} решений</button></div>${whyList().map(x=>whyCard(x,false)).join('')}</div>`;
 }
 function whyInline(){const l=whyList();if(!l.length)return '';return `<details class="why-inline"><summary>Почему так сделано</summary>${l.map(x=>whyCard(x,false)).join('')}</details>`}
@@ -698,7 +722,7 @@ document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='f-min'){const p=$('#f-pts');if(p&&!p.dataset.touched)p.value=Math.max(1,int(t.value)||0)*S.contract.guide}
   if(t.id==='f-pts')t.dataset.touched='1';
-  if(t.id==='f-amt'){const a=Math.max(0,int(t.value)||0),m=Math.round(a*S.contract.matchPct/100);$('#f-amt-hint').textContent=`Папа добавит +${fmt(m)}. В мечту попадёт ${pts(a+m)}.`}
+  if(t.id==='f-amt'){const a=Math.max(0,int(t.value)||0),m=Math.round(a*S.contract.matchPct/100);$('#f-amt-hint').textContent=`${S.parent} добавит +${fmt(m)}. В мечту попадёт ${pts(a+m)}.`}
   if(t.id==='f-cash'){const a=Math.max(0,int(t.value)||0);$('#f-cash-hint').textContent=`Это ${fmt(a*S.contract.rate)} ₽.`}
 });
 document.addEventListener('change',e=>{
@@ -759,8 +783,8 @@ const ACT={
   reqOk:d=>{const r=S.requests.find(x=>x.id===d.id);r.status='done';S.wallet[r.kid]=Math.max(0,S.wallet[r.kid]-r.pts);addLog({kind:'reward',kid:r.kid,text:r.type==='cash'?`Обмен на ${fmt(r.rub)} ₽`:'Награда: '+r.title,delta:-r.pts});commit('Готово, баллы списаны')},
   reqNo:d=>{const r=S.requests.find(x=>x.id===d.id);r.status='declined';commit('Отказано, баллы вернулись ребёнку')},
   toDream:()=>{const k=UI.role,f=free(k),a0=Math.min(f,100),m0=Math.round(a0*S.contract.matchPct/100);
-    sheet('Положить в мечту',fld('f-amt','Сколько баллов',numIn('f-amt','amt',a0,1,f))+`<p class="hint" id="f-amt-hint">Папа добавит +${fmt(m0)}. В мечту попадёт ${pts(a0+m0)}.</p><p class="hint">Отложенное в мечту обратно не забирается. Так легче копить.</p>`,'Положить',x=>{const a=int(x.amt);if(!(a>=1&&a<=f))return `Можно от 1 до ${fmt(f)}.`;const m=Math.round(a*S.contract.matchPct/100),dr=S.dreams[k];
-      S.wallet[k]-=a;dr.contribs.push({by:'own',from:kname(k),amount:a,t:Date.now()});if(m)dr.contribs.push({by:'match',from:S.parent,amount:m,t:Date.now()});addLog({kind:'dream',kid:k,text:`В мечту (+${fmt(m)} от папы)`,delta:-a});commit(`+${fmt(a+m)} в мечту!`)})},
+    sheet('Положить в мечту',fld('f-amt','Сколько баллов',numIn('f-amt','amt',a0,1,f))+`<p class="hint" id="f-amt-hint">${esc(S.parent)} добавит +${fmt(m0)}. В мечту попадёт ${pts(a0+m0)}.</p><p class="hint">Отложенное в мечту обратно не забирается. Так легче копить.</p>`,'Положить',x=>{const a=int(x.amt);if(!(a>=1&&a<=f))return `Можно от 1 до ${fmt(f)}.`;const m=Math.round(a*S.contract.matchPct/100),dr=S.dreams[k];
+      S.wallet[k]-=a;dr.contribs.push({by:'own',from:kname(k),amount:a,t:Date.now()});if(m)dr.contribs.push({by:'match',from:S.parent,amount:m,t:Date.now()});addLog({kind:'dream',kid:k,text:`В мечту (+${fmt(m)} доплата)`,delta:-a});commit(`+${fmt(a+m)} в мечту!`)})},
   sign:d=>{S.contract.signed[d.who]=true;addLog({kind:'contract',kid:d.who==='parent'?null:d.who,text:`${d.who==='parent'?S.parent:kname(d.who)} подписал(а) договор, версия ${S.contract.ver}`});commit('Подписано')},
   newTask:()=>{
     const g=S.contract.guide,tpl=[['Пропылесосить комнату',20],['Помыть посуду',15],['Вынести мусор',5],['Погулять с собакой',30],['Помочь с покупками',40],['Протереть пыль',15]];
@@ -790,9 +814,21 @@ const ACT={
   penCancel:d=>{const p=S.penalties.find(x=>x.id===d.id);p.status='cancelled';addLog({kind:'penalty',kid:p.kid,text:`Исправил(а): «${p.reason}», штраф отменён`});commit('Штраф отменён')},
   pause:d=>sheet('Пауза: '+kname(d.kid),fld('f-r','Причина',`<select id="f-r" name="reason"><option>болеет</option><option>каникулы</option><option>поездка</option></select>`)+fld('f-days','На сколько дней',numIn('f-days','days',3,1,30)),'Поставить паузу',f=>{const n=int(f.days);if(!(n>=1&&n<=30))return 'От 1 до 30 дней.';S.pause[d.kid]={reason:f.reason,until:Date.now()+n*DAY};addLog({kind:'contract',kid:d.kid,text:`Пауза: ${f.reason}, ${n} ${pl(n,'день','дня','дней')}`});commit('Пауза включена, серия заморожена')}),
   unpause:d=>{S.pause[d.kid]=null;commit('Пауза снята')},
-  reset:()=>sheet('Вернуть пример к началу?','<p class="small">Все изменения в этом браузере пропадут, и пример семьи начнётся заново.</p>','Вернуть',()=>{S=seed();UI={role:'parent',tab:'today'};commit('Пример восстановлен')})
+  setup:()=>{
+    const row=i=>`<fieldset class="kidset"><legend>Ребёнок ${i}${i>1?' (если есть)':''}</legend><div class="row2">${fld('f-n'+i,'Имя',`<input id="f-n${i}" name="n${i}" maxlength="20" autocomplete="off">`)}${fld('f-a'+i,'Возраст',`<input id="f-a${i}" name="a${i}" type="number" min="4" max="17" inputmode="numeric">`)}</div><div class="row2">${fld('f-d'+i,'Мечта',`<input id="f-d${i}" name="d${i}" maxlength="40" placeholder="Например: самокат">`)}${fld('f-p'+i,'Цена в баллах',`<input id="f-p${i}" name="p${i}" type="number" min="100" max="1000000" inputmode="numeric" placeholder="3000">`)}</div></fieldset>`;
+    sheet('Своя семья',fld('f-parent','Как вас называют дети',`<input id="f-parent" name="parent" maxlength="20" value="Мама">`)+row(1)+row(2)+row(3)+'<p class="hint">Цену мечты в баллах лучше назначить вместе с ребёнком. Для начала: 2 000–3 000 баллов — это примерно месяц помощи по дому.</p>','Создать семью',f=>{
+      const parent=(f.parent||'').trim();if(!parent)return 'Напишите, как вас называют дети.';
+      const kids=[];
+      for(let i=1;i<=3;i++){const name=(f['n'+i]||'').trim();if(!name)continue;const age=int(f['a'+i]);if(!(age>=4&&age<=17))return `${name}: возраст от 4 до 17 лет.`;const price=f['p'+i]?int(f['p'+i]):3000;if(!(price>=100&&price<=1000000))return `${name}: цена мечты от 100 до 1 000 000 баллов.`;kids.push({name,age,dream:(f['d'+i]||'').trim()||'Моя мечта',price})}
+      if(!kids.length)return 'Добавьте хотя бы одного ребёнка.';
+      S=freshFamily(parent,kids);UI={role:'parent',tab:'today'};commit('Семья создана. Теперь дети подписывают договор');
+    });
+  },
+  reset:()=>sheet('Открыть пример семьи?','<p class="small">Текущие данные в этом браузере заменятся примером семьи.</p>','Открыть пример',()=>{S=seed();UI={role:'parent',tab:'today'};commit('Пример восстановлен')})
 };
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const fn=ACT[b.dataset.act];if(fn){e.preventDefault();fn(b.dataset,b)}});
 render();
 })();
 </script>
+
+</body></html>

@@ -1,0 +1,185 @@
+<title>Ладно</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+/* Макет: одна колонка-витрина. Сверху — общая механика цепочкой, ниже карточки пяти шаблонов (главный — во всю ширину), затем вывод про «всё в одном» и порядок проверки. */
+:root{
+  --bg:#eef0f6; --surface:#ffffff; --ink:#1b2350; --muted:#5b6286; --line:#d8dbea; --on-ink:#ffffff; --on-dot:#ffffff;
+  --c-family:#e89a00; --c-team:#e4572e; --c-pair:#14a38b; --c-care:#8a5cd6; --c-teen:#5fa31a;
+  --t-family:#8f5600; --t-team:#a63212; --t-pair:#0b6e5e; --t-care:#5e35a8; --t-teen:#3b6b0c;
+  --s-family:#fff2d2; --s-team:#ffe6dd; --s-pair:#d6f4ee; --s-care:#ece3fb; --s-teen:#e6f5d2;
+  --f-display:"Unbounded","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10132a; --surface:#1a1e3c; --ink:#eceefb; --muted:#a3a9cc; --line:#2d335c; --on-ink:#10132a; --on-dot:#10132a;
+  --c-family:#ffb625; --c-team:#ff7a50; --c-pair:#3fd1b5; --c-care:#b494ff; --c-teen:#9bd94d;
+  --t-family:#ffcd5c; --t-team:#ff9a78; --t-pair:#6fe3cc; --t-care:#c9b1ff; --t-teen:#b6e978;
+  --s-family:#3a2e10; --s-team:#3d1d14; --s-pair:#12362f; --s-care:#2c2148; --s-teen:#24361a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10132a; --surface:#1a1e3c; --ink:#eceefb; --muted:#a3a9cc; --line:#2d335c; --on-ink:#10132a; --on-dot:#10132a;
+  --c-family:#ffb625; --c-team:#ff7a50; --c-pair:#3fd1b5; --c-care:#b494ff; --c-teen:#9bd94d;
+  --t-family:#ffcd5c; --t-team:#ff9a78; --t-pair:#6fe3cc; --t-care:#c9b1ff; --t-teen:#b6e978;
+  --s-family:#3a2e10; --s-team:#3d1d14; --s-pair:#12362f; --s-care:#2c2148; --s-teen:#24361a; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body)}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;line-height:1.2;text-wrap:balance;margin:0}
+p{margin:0}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--c-care);outline-offset:2px;border-radius:8px}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px;display:flex;flex-direction:column;gap:36px}
+
+.head{display:flex;align-items:center;gap:14px}
+.seal{width:52px;height:52px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--c-family);color:#2a1a00;font-family:var(--f-display);font-weight:700;font-size:24px;box-shadow:inset 0 0 0 3px var(--c-family),inset 0 0 0 6px #fff6;transform:rotate(-8deg)}
+.head b{font-family:var(--f-display);font-size:28px;line-height:1;display:block}
+.head small{color:var(--muted);font-size:13px}
+
+.intro{display:flex;flex-direction:column;gap:14px;max-width:68ch}
+.intro h1{font-size:clamp(26px,4.4vw,40px)}
+.intro p{font-size:16.5px;color:var(--muted)}
+
+.chain{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;counter-reset:c}
+.chain li{counter-increment:c;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 6px;font-weight:500;font-size:14px}
+.chain li::before{content:counter(c);width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--on-ink);font-family:var(--f-display);font-size:11px}
+.chain-note{font-size:13px;color:var(--muted)}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{--c:var(--c-family);--t:var(--t-family);--s:var(--s-family);background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.card.team{--c:var(--c-team);--t:var(--t-team);--s:var(--s-team)}
+.card.pair{--c:var(--c-pair);--t:var(--t-pair);--s:var(--s-pair)}
+.card.care{--c:var(--c-care);--t:var(--t-care);--s:var(--s-care)}
+.card.teen{--c:var(--c-teen);--t:var(--t-teen);--s:var(--s-teen)}
+.card.lead{grid-column:1/-1;background:var(--s);border-color:transparent;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px 28px;align-items:start}
+@media (max-width:760px){.card.lead{grid-template-columns:minmax(0,1fr)}}
+.card-top{display:flex;align-items:center;gap:12px}
+.dot{width:40px;height:40px;flex:none;border-radius:50%;background:var(--c);display:grid;place-items:center;color:var(--on-dot);font-family:var(--f-display);font-weight:700;font-size:16px;transform:rotate(-8deg)}
+.card.lead .dot{color:#2a1a00}
+.card h2{font-size:20px}
+.for{font-size:13px;color:var(--muted)}
+.verdict{display:inline-flex;align-self:flex-start;background:var(--s);color:var(--t);font-weight:600;font-size:12.5px;padding:3px 10px;border-radius:999px}
+.card.lead .verdict{background:var(--surface)}
+.facts{margin:0;display:grid;gap:10px}
+.facts div{display:grid;gap:2px}
+.facts dt{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.facts dd{margin:0;font-size:14.5px}
+.facts .num{font-family:var(--f-display);font-size:17px;color:var(--t)}
+.src{font-size:12px;color:var(--muted)}
+.open{margin-top:auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;align-self:flex-start;background:var(--ink);color:var(--on-ink);text-decoration:none;font-weight:600;padding:10px 16px;border-radius:11px}
+.open:hover{opacity:.9}
+.shows{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
+
+.section{display:flex;flex-direction:column;gap:14px}
+.section h2{font-size:22px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;display:grid;gap:12px}
+.panel p{max-width:72ch}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:12px;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;align-items:start}
+.steps li::before{content:counter(s);width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);font-family:var(--f-display);font-size:14px}
+.steps b{font-weight:600}
+.foot{font-size:13px;color:var(--muted);max-width:72ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="head"><span class="seal" aria-hidden="true">Л</span><div><b>Ладно</b><small>линейка прототипов · октябрь 2026</small></div></header>
+
+  <section class="intro">
+    <h1>Одна механика договорённостей — пять жизненных ситуаций</h1>
+    <p>Мы проверили идеи из исследования и собрали по каждой кликабельный прототип. В основе у всех одна и та же схема. Её можно сделать один раз и использовать в разных шаблонах, а не писать пять отдельных приложений.</p>
+    <ol class="chain" aria-label="Общая механика">
+      <li>Участники</li><li>Задачи</li><li>Подтверждение</li><li>Баллы или вклад</li><li>Договор</li><li>История</li><li>Награды</li>
+    </ol>
+    <p class="chain-note">В каждом прототипе вверху есть переключатель «Смотреть как» и экран «Решения»: какие проблемы нашло исследование и как прототип их решает.</p>
+  </section>
+
+  <section class="grid" aria-label="Прототипы">
+    <article class="card lead">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="card-top"><span class="dot" aria-hidden="true">С</span><div><h2>Семья</h2><p class="for">Родители и дети: задания, баллы, мечта</p></div></div>
+        <span class="verdict">Делать первым</span>
+        <ul class="shows">
+          <li>Торг о цене задания между ребёнком и родителем</li>
+          <li>Копилка большой мечты с доплатой родителя и взносами родственников</li>
+          <li>Договор, который подписывают все, штрафы выключены по умолчанию</li>
+          <li>Новое: можно создать свою семью и попробовать с детьми</li>
+        </ul>
+        <a class="open" href="family.html">Открыть прототип →</a>
+      </div>
+      <dl class="facts">
+        <div><dt>Спрос</dt><dd><span class="num">86%</span> детей 7–14 лет имеют свои деньги</dd><dd class="src">Сбер, июль 2026</dd></div>
+        <div><dt>Аналоги</dt><dd>СберKids и Т-Банк «Джуниор» бесплатно платят за задания. Независимые российские приложения — до 1 тыс. установок</dd><dd class="src">RuStore, 24.10.2026</dd></div>
+        <div><dt>Свободное место</dt><dd>Договор о мечте: торг, большая цель, родственники, работа с любым банком и на iPhone</dd></div>
+      </dl>
+    </article>
+
+    <article class="card team">
+      <div class="card-top"><span class="dot" aria-hidden="true">К</span><div><h2>Кафе</h2><p class="for">Небольшая команда: смены, «спасибо», прозрачная премия</p></div></div>
+      <span class="verdict">Второй шаг: бизнес платит охотнее</span>
+      <dl class="facts">
+        <div><dt>Боль</dt><dd><span class="num">~30%</span> в год — текучесть в общепите</dd><dd class="src">Контур, апрель 2025</dd></div>
+        <div><dt>Главное отличие</dt><dd>Денежные штрафы незаконны (ст. 192 ТК РФ). Вместо них — снижение премии по пункту положения, которое видит каждый</dd></div>
+        <div><dt>Аналоги</dt><dd>Saby «Мотивация» от 7 000 ₽ в год, лучше работает с их кассой</dd><dd class="src">saby.ru, по выдержке, 24.10.2026</dd></div>
+      </dl>
+      <a class="open" href="team.html">Открыть прототип →</a>
+    </article>
+
+    <article class="card pair">
+      <div class="card-top"><span class="dot" aria-hidden="true">В</span><div><h2>Вдвоём</h2><p class="for">Пара или соседи: честное деление домашних дел</p></div></div>
+      <span class="verdict">Легко сделать на том же ядре</span>
+      <dl class="facts">
+        <div><dt>Боль</dt><dd><span class="num">54,3%</span> россиянок считают, что основную часть дел делают они</dd><dd class="src">Вечерний Петербург, 29.09.2026</dd></div>
+        <div><dt>Главное отличие</dt><dd>У дела есть «вес»: время и неприятность. Учитывается и невидимая работа: помнить, планировать</dd></div>
+        <div><dt>Аналоги</dt><dd>Tody, Sweepy, Flatastic за рубежом. Сильных российских нет</dd></div>
+      </dl>
+      <a class="open" href="pair.html">Открыть прототип →</a>
+    </article>
+
+    <article class="card care">
+      <div class="card-top"><span class="dot" aria-hidden="true">З</span><div><h2>Забота</h2><p class="for">Братья и сёстры вместе заботятся о пожилом родителе</p></div></div>
+      <span class="verdict">Сильная боль, честная версия «всё в одном»</span>
+      <dl class="facts">
+        <div><dt>Боль</dt><dd>В <span class="num">62%</span> семей расходы на уход несёт один ребёнок. Уход стоит 20–50 тыс. ₽ в месяц</dd><dd class="src">Mail.ru Финансы, 2026, пересказ исследования «ИнтерПенсионер»</dd></div>
+        <div><dt>Главное отличие</dt><dd>Простой экран для мамы с большими кнопками и общий список «заказать для мамы»: кто взял и кто заплатил</dd></div>
+        <div><dt>Аналоги</dt><dd>Российских не найдено</dd></div>
+      </dl>
+      <a class="open" href="care.html">Открыть прототип →</a>
+    </article>
+
+    <article class="card teen">
+      <div class="card-top"><span class="dot" aria-hidden="true">П</span><div><h2>Подработка</h2><p class="for">Подросток зарабатывает у родных и соседей</p></div></div>
+      <span class="verdict">Только доверенный круг</span>
+      <dl class="facts">
+        <div><dt>Спрос</dt><dd>Резюме подростков на hh.ru: <span class="num">+74%</span> за январь–май 2025</dd><dd class="src">CNews, 18.06.2025</dd></div>
+        <div><dt>Главное отличие</dt><dd>Задания дают только взрослые, которых пригласил родитель. Родитель одобряет каждое задание. Деньги идут мимо приложения</dd></div>
+        <div><dt>Аналоги</dt><dd>Только взрослые сайты вакансий. Безопасной «песочницы» не найдено</dd></div>
+      </dl>
+      <a class="open" href="teen.html">Открыть прототип →</a>
+    </article>
+  </section>
+
+  <section class="section">
+    <h2>Почему нет приложения «всё в одном»</h2>
+    <div class="panel">
+      <p>Идея заказывать еду и услуги в одном месте понятна, но это место уже заняли Яндекс, Сбер, Т-Банк и Wildberries. Выручка «Городских сервисов» Яндекса за второй квартал 2026 года — 215,6 млрд ₽, у подписки Плюс 49,4 млн подписчиков (Интерфакс, 29.07.2026). У сервисов доставки и такси нет открытого доступа для чужих приложений, а прошлые агрегаторы закрылись: например, «Около» от X5.</p>
+      <p>Поэтому «всё в одном» есть только в узкой версии, в прототипе «Забота». Там приложение не притворяется магазином. Оно собирает в одном месте всё, что нужно маме, и показывает, кто из детей взял задачу и кто заплатил. Сам заказ делают в привычном сервисе.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>В каком порядке проверять</h2>
+    <div class="panel">
+      <ol class="steps">
+        <li><span><b>Семья — 10–20 семей на месяц.</b> Работает, если через 4 недели больше половины семей всё ещё отмечают задания, а дети сами предлагают свои.</span></li>
+        <li><span><b>Кафе — 3–5 заведений.</b> Смотрим, становится ли меньше споров о премии и выполняются ли чек-листы. Цена 500–1 500 ₽ за точку в месяц — гипотеза, её нужно проверить.</span></li>
+        <li><span><b>Вдвоём — шаблон того же ядра.</b> Обходится дёшево, когда семейная версия уже готова.</span></li>
+        <li><span><b>Забота и Подработка — после.</b> У обеих сильная боль, но больше юридических вопросов: данные о здоровье, несовершеннолетние, чужие взрослые.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <p class="foot">Все люди и цифры внутри прототипов — примеры. Данные хранятся только в вашем браузере. Источники и даты есть в отчёте «Семейная мотивация и единые сервисы» и на экране «Решения» каждого прототипа.</p>
+</div>
