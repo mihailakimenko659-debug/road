@@ -82,7 +82,8 @@ aside#why{display:none}
 .tabs{position:sticky;bottom:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:var(--r) var(--r) 0 0;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
 .tab{border:0;background:none;padding:8px 4px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);position:relative}
 .tab[aria-selected="true"]{color:var(--ink);background:var(--bg)}
-.tab .badge{position:absolute;top:3px;right:calc(50% - 30px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;font-weight:600}
+.tab .tl{position:relative;display:inline-block}
+.tab .badge{position:absolute;left:calc(100% + 1px);top:-9px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:10.5px;line-height:16px;font-weight:600}
 
 /* Блоки */
 .screen-title{font-size:26px}
@@ -700,7 +701,7 @@ function render(){
   if(UI.tab!=='solutions'&&!TABS.some(t=>t[0]===UI.tab))UI.tab='chores';
   $('#roles').innerHTML=`<span class="roles-label">Смотреть как:</span>`+act().map(p=>`<button class="role" role="tab" aria-selected="${UI.role===p.id}" data-act="role" data-role="${p.id}"><span class="av ${pcls(p.id)}" aria-hidden="true">${esc(p.name[0])}</span>${esc(p.name)}</button>`).join('');
   $('#screen').innerHTML=UI.tab==='solutions'?vSolutions():VIEW[UI.tab]()+whyInline();
-  $('#tabs').innerHTML=TABS.map(([id,l])=>{const b=badge(id);return `<button class="tab" role="tab" aria-selected="${UI.tab===id}" data-act="tab" data-tab="${id}">${l}${b?`<span class="badge">${b}</span>`:''}</button>`}).join('');
+  $('#tabs').innerHTML=TABS.map(([id,l])=>{const b=badge(id);return `<button class="tab" role="tab" aria-selected="${UI.tab===id}" data-act="tab" data-tab="${id}"><span class="tl">${l}${b?`<span class="badge" aria-label="${b} новых">${b}</span>`:''}</span></button>`}).join('');
   $('#why').innerHTML=whyAside();
 }
 
